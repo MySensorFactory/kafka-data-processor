@@ -1,0 +1,12 @@
+kafka:
+  temperatureTopicName: temperature
+  pressureTopicName: pressure
+  resultTopic: results
+spring:
+  kafka:
+    bootstrap-servers: localhost:29092
+    producer:
+      bootstrap-servers: localhost:29092
+      value-serializer: org.apache.kafka.common.serialization.LongDeserializer
+server:
+  port: 9097
