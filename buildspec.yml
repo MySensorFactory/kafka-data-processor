@@ -1,0 +1,43 @@
+version: 0.2
+
+env:
+    variables:
+        PROJECT_NAME: kafka-data-processor
+        DOCKER_BUILD: yes
+
+phases: 
+    install:
+        runtime-versions:
+            java: corretto17
+        commands:
+            - apt update -y
+            - apt install docker.io curl -y
+            - nohup /usr/local/bin/dockerd --host=unix:///var/run/docker.sock --host=tcp://127.0.0.1:2375 --storage-driver=overlay2&
+            - timeout 15 sh -c "until docker info; do echo .; sleep 1; done"
+    pre_build:
+        commands:
+            - echo "Fetching repository token ..."
+            - export CODEARTIFACT_AUTH_TOKEN=`aws codeartifact get-authorization-token --domain factory --domain-owner 781648067507 --region eu-central-1 --query authorizationToken --output text`
+            - echo "Pulling settings.xml"
+            - aws s3 cp s3://factory-ci-cd/settings.xml settings.xml
+    build:
+        commands:
+            - echo "Building ..."
+            - mvn -s settings.xml clean package
+    post_build:
+        commands:
+            - echo "Publishing to artifact repository ..."
+            - mvn -s settings.xml deploy
+            - if [ "$DOCKER_BUILD" != "yes"]; then exit 0; fi
+            - echo "Building docker image ..."
+            - echo $DOCKER_PASSWORD | docker login --username $DOCKER_USERNAME --password-stdin
+            - docker build -t ${DOCKER_USERNAME}/${PROJECT_NAME} --build-arg DIRECTORY=target --build-arg SERVICE_NAME=$PROJECT_NAME .
+            - docker push ${DOCKER_USERNAME}/${PROJECT_NAME}
+            - echo "Sending application manifests to S3 ..."
+            - aws s3 cp kube s3://factory-ci-cd/applications/$PROJECT_NAME/ --recursive
+cache:
+    paths:
+        - '/root/.m2/**/*'
+        - '/root/.npm/**/*'
+        - '/root/.pip-cache/**/*'
+        - '/root/.docker/**'
