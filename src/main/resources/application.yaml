@@ -11,16 +11,25 @@ spring:
       application-id: DataProcessor
       config:
         pressure:
+          enabled: true
           windowSize: 15
           labels: [ AfterReturnCompressor, BeforeReturnCompressor, AfterBeginCompressor, BeforeBeginCompressor ]
           inputTopic: pressure
           outputTopicsPostfix: PressureMean
           debugEnabled: true
         temperature:
+          enabled: true
           windowSize: 15
           labels: [ BeforeBoiler, AfterBoiler, Return, Begin ]
           inputTopic: temperature
           outputTopicsPostfix: TemperatureMean
+          debugEnabled: true
+        flowRate:
+          enabled: true
+          windowSize: 15
+          labels: [ CompressedReturnFlowRate, NotCompressedReturnFlowRate, InputFlowRate, OutputFlowRate ]
+          inputTopic: flowRate
+          outputTopicsPostfix: FlowRateMean
           debugEnabled: true
 server:
   port: 9097
