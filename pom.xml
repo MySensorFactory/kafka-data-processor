@@ -20,7 +20,23 @@
             <artifactId>kafka-streams</artifactId>
             <version>${kafka-streams.version}</version>
         </dependency>
+        <dependency>
+            <groupId>com.factory</groupId>
+            <artifactId>entity-store</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.confluent</groupId>
+            <artifactId>kafka-streams-avro-serde</artifactId>
+            <version>7.5.0</version>
+        </dependency>
     </dependencies>
+
+    <repositories>
+        <repository>
+            <id>confluent.io</id>
+            <url>https://packages.confluent.io/maven/</url>
+        </repository>
+    </repositories>
 
     <artifactId>kafka-data-processor</artifactId>
     <name>kafka-data-processor</name>

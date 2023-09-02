@@ -16,5 +16,11 @@ spring:
           inputTopic: pressure
           outputTopicsPostfix: PressureMean
           debugEnabled: true
+        temperature:
+          windowSize: 15
+          labels: [ BeforeBoiler, AfterBoiler, Return, Begin ]
+          inputTopic: temperature
+          outputTopicsPostfix: TemperatureMean
+          debugEnabled: true
 server:
   port: 9097

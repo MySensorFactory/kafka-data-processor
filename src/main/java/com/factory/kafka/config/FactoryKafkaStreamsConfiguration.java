@@ -1,9 +1,11 @@
 package com.factory.kafka.config;
 
 import com.factory.kafka.config.factory.PressureMeanStreamFactory;
+import com.factory.kafka.config.factory.TemperatureMeanStreamFactory;
 import com.factory.kafka.config.model.KafkaNativeConfig;
 import com.factory.kafka.config.model.StreamsConfiguration;
 import com.factory.message.Pressure;
+import com.factory.message.Temperature;
 import io.confluent.kafka.streams.serdes.avro.SpecificAvroSerde;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.common.serialization.Serdes;
@@ -79,5 +81,22 @@ public class FactoryKafkaStreamsConfiguration {
     public List<KStream<String, Pressure>> pressureMeanStreams(final StreamsBuilder streamsBuilder,
                                                               final PressureMeanStreamFactory factory) {
         return factory.splitToMeanPressureBranches(streamsBuilder);
+    }
+
+    @Bean
+    public TemperatureMeanStreamFactory temperatureMeanStreamFactory(final KafkaNativeConfig kafkaNativeConfig,
+                                                                  final StreamsConfiguration streamsConfiguration) {
+        final var pressureConfigurationKey = "temperature";
+        final var config = streamsConfiguration.getConfig().get(pressureConfigurationKey);
+        return TemperatureMeanStreamFactory.builder()
+                .kafkaNativeConfig(kafkaNativeConfig)
+                .config(config)
+                .build();
+    }
+
+    @Bean
+    public List<KStream<String, Temperature>> temperatureMeanStreams(final StreamsBuilder streamsBuilder,
+                                                                  final TemperatureMeanStreamFactory factory) {
+        return factory.splitToMeanTemperatureBranches(streamsBuilder);
     }
 }
