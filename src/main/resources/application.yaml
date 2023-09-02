@@ -1,12 +1,20 @@
-kafka:
-  temperatureTopicName: temperature
-  pressureTopicName: pressure
-  resultTopic: results
 spring:
+  application:
+    name: streams-app
   kafka:
     bootstrap-servers: localhost:29092
     producer:
       bootstrap-servers: localhost:29092
-      value-serializer: org.apache.kafka.common.serialization.LongDeserializer
+    schemaRegistryUrl: http://localhost:8081
+    streams:
+      replication-factor: 1
+      application-id: DataProcessor
+      config:
+        pressure:
+          windowSize: 15
+          labels: [ AfterReturnCompressor, BeforeReturnCompressor, AfterBeginCompressor, BeforeBeginCompressor ]
+          inputTopic: pressure
+          outputTopicsPostfix: PressureMean
+          debugEnabled: true
 server:
   port: 9097
