@@ -1,9 +1,11 @@
 package com.factory.kafka.config;
 
+import com.factory.kafka.config.factory.FlowRateMeanStreamFactory;
 import com.factory.kafka.config.factory.PressureMeanStreamFactory;
 import com.factory.kafka.config.factory.TemperatureMeanStreamFactory;
 import com.factory.kafka.config.model.KafkaNativeConfig;
 import com.factory.kafka.config.model.StreamsConfiguration;
+import com.factory.message.FlowRate;
 import com.factory.message.Pressure;
 import com.factory.message.Temperature;
 import io.confluent.kafka.streams.serdes.avro.SpecificAvroSerde;
@@ -79,13 +81,13 @@ public class FactoryKafkaStreamsConfiguration {
 
     @Bean
     public List<KStream<String, Pressure>> pressureMeanStreams(final StreamsBuilder streamsBuilder,
-                                                              final PressureMeanStreamFactory factory) {
-        return factory.splitToMeanPressureBranches(streamsBuilder);
+                                                               final PressureMeanStreamFactory factory) {
+        return factory.splitToMeanBranches(streamsBuilder);
     }
 
     @Bean
     public TemperatureMeanStreamFactory temperatureMeanStreamFactory(final KafkaNativeConfig kafkaNativeConfig,
-                                                                  final StreamsConfiguration streamsConfiguration) {
+                                                                     final StreamsConfiguration streamsConfiguration) {
         final var pressureConfigurationKey = "temperature";
         final var config = streamsConfiguration.getConfig().get(pressureConfigurationKey);
         return TemperatureMeanStreamFactory.builder()
@@ -96,7 +98,24 @@ public class FactoryKafkaStreamsConfiguration {
 
     @Bean
     public List<KStream<String, Temperature>> temperatureMeanStreams(final StreamsBuilder streamsBuilder,
-                                                                  final TemperatureMeanStreamFactory factory) {
-        return factory.splitToMeanTemperatureBranches(streamsBuilder);
+                                                                     final TemperatureMeanStreamFactory factory) {
+        return factory.splitToMeanBranches(streamsBuilder);
+    }
+
+    @Bean
+    public FlowRateMeanStreamFactory flowRateMeanStreamFactory(final KafkaNativeConfig kafkaNativeConfig,
+                                                               final StreamsConfiguration streamsConfiguration) {
+        final var pressureConfigurationKey = "flowRate";
+        final var config = streamsConfiguration.getConfig().get(pressureConfigurationKey);
+        return FlowRateMeanStreamFactory.builder()
+                .kafkaNativeConfig(kafkaNativeConfig)
+                .config(config)
+                .build();
+    }
+
+    @Bean
+    public List<KStream<String, FlowRate>> flowRateMeanStreams(final StreamsBuilder streamsBuilder,
+                                                               final FlowRateMeanStreamFactory factory) {
+        return factory.splitToMeanBranches(streamsBuilder);
     }
 }
