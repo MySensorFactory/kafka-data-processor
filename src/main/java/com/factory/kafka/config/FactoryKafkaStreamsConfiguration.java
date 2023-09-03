@@ -1,11 +1,15 @@
 package com.factory.kafka.config;
 
 import com.factory.kafka.config.factory.FlowRateMeanStreamFactory;
+import com.factory.kafka.config.factory.GasCompositionMeanStreamFactory;
+import com.factory.kafka.config.factory.NoiseAndVibrationMeanStreamFactory;
 import com.factory.kafka.config.factory.PressureMeanStreamFactory;
 import com.factory.kafka.config.factory.TemperatureMeanStreamFactory;
 import com.factory.kafka.config.model.KafkaNativeConfig;
 import com.factory.kafka.config.model.StreamsConfiguration;
 import com.factory.message.FlowRate;
+import com.factory.message.GasComposition;
+import com.factory.message.NoiseAndVibration;
 import com.factory.message.Pressure;
 import com.factory.message.Temperature;
 import io.confluent.kafka.streams.serdes.avro.SpecificAvroSerde;
@@ -14,6 +18,8 @@ import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.streams.StreamsBuilder;
 import org.apache.kafka.streams.kstream.KStream;
 import org.apache.kafka.streams.processor.WallclockTimestampExtractor;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -69,6 +75,9 @@ public class FactoryKafkaStreamsConfiguration {
     }
 
     @Bean
+    @ConditionalOnProperty(
+            value="spring.kafka.streams.config.pressure.enabled",
+            havingValue = "true")
     public PressureMeanStreamFactory pressureMeanStreamFactory(final KafkaNativeConfig kafkaNativeConfig,
                                                                final StreamsConfiguration streamsConfiguration) {
         final var pressureConfigurationKey = "pressure";
@@ -80,12 +89,16 @@ public class FactoryKafkaStreamsConfiguration {
     }
 
     @Bean
+    @ConditionalOnBean(PressureMeanStreamFactory.class)
     public List<KStream<String, Pressure>> pressureMeanStreams(final StreamsBuilder streamsBuilder,
                                                                final PressureMeanStreamFactory factory) {
         return factory.splitToMeanBranches(streamsBuilder);
     }
 
     @Bean
+    @ConditionalOnProperty(
+            value="spring.kafka.streams.config.temperature.enabled",
+            havingValue = "true")
     public TemperatureMeanStreamFactory temperatureMeanStreamFactory(final KafkaNativeConfig kafkaNativeConfig,
                                                                      final StreamsConfiguration streamsConfiguration) {
         final var pressureConfigurationKey = "temperature";
@@ -97,12 +110,16 @@ public class FactoryKafkaStreamsConfiguration {
     }
 
     @Bean
+    @ConditionalOnBean(TemperatureMeanStreamFactory.class)
     public List<KStream<String, Temperature>> temperatureMeanStreams(final StreamsBuilder streamsBuilder,
                                                                      final TemperatureMeanStreamFactory factory) {
         return factory.splitToMeanBranches(streamsBuilder);
     }
 
     @Bean
+    @ConditionalOnProperty(
+            value="spring.kafka.streams.config.flowRate.enabled",
+            havingValue = "true")
     public FlowRateMeanStreamFactory flowRateMeanStreamFactory(final KafkaNativeConfig kafkaNativeConfig,
                                                                final StreamsConfiguration streamsConfiguration) {
         final var pressureConfigurationKey = "flowRate";
@@ -114,8 +131,51 @@ public class FactoryKafkaStreamsConfiguration {
     }
 
     @Bean
+    @ConditionalOnBean(FlowRateMeanStreamFactory.class)
     public List<KStream<String, FlowRate>> flowRateMeanStreams(final StreamsBuilder streamsBuilder,
                                                                final FlowRateMeanStreamFactory factory) {
+        return factory.splitToMeanBranches(streamsBuilder);
+    }
+
+    @Bean
+    @ConditionalOnProperty(
+            value="spring.kafka.streams.config.gasComposition.enabled",
+            havingValue = "true")
+    public GasCompositionMeanStreamFactory gasCompositionMeanStreamFactory(final KafkaNativeConfig kafkaNativeConfig,
+                                                                           final StreamsConfiguration streamsConfiguration) {
+        final var pressureConfigurationKey = "gasComposition";
+        final var config = streamsConfiguration.getConfig().get(pressureConfigurationKey);
+        return GasCompositionMeanStreamFactory.builder()
+                .kafkaNativeConfig(kafkaNativeConfig)
+                .config(config)
+                .build();
+    }
+
+    @Bean
+    @ConditionalOnBean(GasCompositionMeanStreamFactory.class)
+    public List<KStream<String, GasComposition>> gasCompositionMeanStreams(final StreamsBuilder streamsBuilder,
+                                                                           final GasCompositionMeanStreamFactory factory) {
+        return factory.splitToMeanBranches(streamsBuilder);
+    }
+
+    @Bean
+    @ConditionalOnProperty(
+            value="spring.kafka.streams.config.noiseAndVibration.enabled",
+            havingValue = "true")
+    public NoiseAndVibrationMeanStreamFactory noiseAndVibrationMeanStreamFactory(final KafkaNativeConfig kafkaNativeConfig,
+                                                                                 final StreamsConfiguration streamsConfiguration) {
+        final var pressureConfigurationKey = "noiseAndVibration";
+        final var config = streamsConfiguration.getConfig().get(pressureConfigurationKey);
+        return NoiseAndVibrationMeanStreamFactory.builder()
+                .kafkaNativeConfig(kafkaNativeConfig)
+                .config(config)
+                .build();
+    }
+
+    @Bean
+    @ConditionalOnBean(NoiseAndVibrationMeanStreamFactory.class)
+    public List<KStream<String, NoiseAndVibration>> noiseAndVibrationMeanStreams(final StreamsBuilder streamsBuilder,
+                                                                                 final NoiseAndVibrationMeanStreamFactory factory) {
         return factory.splitToMeanBranches(streamsBuilder);
     }
 }

@@ -27,9 +27,23 @@ spring:
         flowRate:
           enabled: true
           windowSize: 15
-          labels: [ CompressedReturnFlowRate, NotCompressedReturnFlowRate, InputFlowRate, OutputFlowRate ]
+          labels: [ CompressedReturn, NotCompressedReturn, Input, Output ]
           inputTopic: flowRate
           outputTopicsPostfix: FlowRateMean
+          debugEnabled: true
+        gasComposition:
+          enabled: true
+          windowSize: 15
+          labels: [ Begin, Input, Output, Return ]
+          inputTopic: gasComposition
+          outputTopicsPostfix: GasCompositionMean
+          debugEnabled: true
+        noiseAndVibration:
+          enabled: true
+          windowSize: 15
+          labels: [ ReturnCompressor, BeginCompressor ]
+          inputTopic: noiseAndVibration
+          outputTopicsPostfix: NoiseAndVibrationMean
           debugEnabled: true
 server:
   port: 9097
