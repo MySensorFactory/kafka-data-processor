@@ -1,7 +1,7 @@
 package com.factory.kafka.config.factory;
 
 import com.factory.kafka.config.model.KafkaNativeConfig;
-import com.factory.kafka.config.model.StreamConfig;
+import com.factory.kafka.config.model.MeanStreamConfig;
 import com.factory.message.NoiseAndVibration;
 import com.factory.message.NoiseAndVibrationAggregation;
 import com.factory.message.NoiseDataRecord;
@@ -23,7 +23,7 @@ import java.util.List;
 public class NoiseAndVibrationMeanStreamFactory extends MeanStreamFactory<NoiseAndVibration, NoiseAndVibrationAggregation> {
 
     @Builder
-    public NoiseAndVibrationMeanStreamFactory(final KafkaNativeConfig kafkaNativeConfig, final StreamConfig config) {
+    public NoiseAndVibrationMeanStreamFactory(final KafkaNativeConfig kafkaNativeConfig, final MeanStreamConfig config) {
         super(kafkaNativeConfig, config);
     }
 

@@ -1,7 +1,7 @@
 package com.factory.kafka.config.factory;
 
 import com.factory.kafka.config.model.KafkaNativeConfig;
-import com.factory.kafka.config.model.StreamConfig;
+import com.factory.kafka.config.model.MeanStreamConfig;
 import com.factory.message.Temperature;
 import com.factory.message.TemperatureAggregation;
 import com.factory.message.TemperatureDataRecord;
@@ -22,7 +22,7 @@ import java.util.List;
 public class TemperatureMeanStreamFactory extends MeanStreamFactory<Temperature, TemperatureAggregation> {
 
     @Builder
-    public TemperatureMeanStreamFactory(final KafkaNativeConfig kafkaNativeConfig, final StreamConfig config) {
+    public TemperatureMeanStreamFactory(final KafkaNativeConfig kafkaNativeConfig, final MeanStreamConfig config) {
         super(kafkaNativeConfig, config);
     }
 

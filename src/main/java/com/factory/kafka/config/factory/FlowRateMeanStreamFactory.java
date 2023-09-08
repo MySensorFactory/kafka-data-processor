@@ -1,7 +1,7 @@
 package com.factory.kafka.config.factory;
 
 import com.factory.kafka.config.model.KafkaNativeConfig;
-import com.factory.kafka.config.model.StreamConfig;
+import com.factory.kafka.config.model.MeanStreamConfig;
 import com.factory.message.FlowRate;
 import com.factory.message.FlowRateAggregation;
 import com.factory.message.FlowRateDataRecord;
@@ -22,7 +22,7 @@ import java.util.List;
 public class FlowRateMeanStreamFactory extends MeanStreamFactory<FlowRate, FlowRateAggregation> {
 
     @Builder
-    public FlowRateMeanStreamFactory(final KafkaNativeConfig kafkaNativeConfig, final StreamConfig config) {
+    public FlowRateMeanStreamFactory(final KafkaNativeConfig kafkaNativeConfig, final MeanStreamConfig config) {
         super(kafkaNativeConfig, config);
     }
 

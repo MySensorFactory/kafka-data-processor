@@ -1,7 +1,7 @@
 package com.factory.kafka.config.factory;
 
 import com.factory.kafka.config.model.KafkaNativeConfig;
-import com.factory.kafka.config.model.StreamConfig;
+import com.factory.kafka.config.model.MeanStreamConfig;
 import com.factory.message.GasComposition;
 import com.factory.message.GasCompositionAggregation;
 import com.factory.message.GasCompositionDataRecord;
@@ -22,7 +22,7 @@ import java.util.List;
 public class GasCompositionMeanStreamFactory extends MeanStreamFactory<GasComposition, GasCompositionAggregation> {
 
     @Builder
-    public GasCompositionMeanStreamFactory(final KafkaNativeConfig kafkaNativeConfig, final StreamConfig config) {
+    public GasCompositionMeanStreamFactory(final KafkaNativeConfig kafkaNativeConfig, final MeanStreamConfig config) {
         super(kafkaNativeConfig, config);
     }
 

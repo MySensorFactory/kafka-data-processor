@@ -5,6 +5,6 @@ import lombok.Data;
 import java.util.Map;
 
 @Data
-public class StreamsConfiguration {
-    private Map<String, StreamConfig> config;
+public class MeanStreamsConfiguration {
+    private Map<String, MeanStreamConfig> mean;
 }

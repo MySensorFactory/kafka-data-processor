@@ -5,7 +5,7 @@ import lombok.Data;
 import java.util.List;
 
 @Data
-public class StreamConfig {
+public class MeanStreamConfig {
     private String inputTopic;
     private List<String> labels;
     private Integer windowSize;

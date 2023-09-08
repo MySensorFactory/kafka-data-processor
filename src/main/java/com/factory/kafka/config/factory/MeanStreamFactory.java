@@ -1,8 +1,7 @@
 package com.factory.kafka.config.factory;
 
 import com.factory.kafka.config.model.KafkaNativeConfig;
-import com.factory.kafka.config.model.StreamConfig;
-import io.confluent.kafka.streams.serdes.avro.SpecificAvroSerde;
+import com.factory.kafka.config.model.MeanStreamConfig;
 import lombok.Getter;
 import org.apache.avro.specific.SpecificRecordBase;
 import org.apache.kafka.common.serialization.Serde;
@@ -13,12 +12,9 @@ import org.apache.kafka.streams.kstream.Predicate;
 import java.util.Arrays;
 import java.util.List;
 
-import static io.confluent.kafka.serializers.AbstractKafkaAvroSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG;
-import static java.util.Collections.singletonMap;
-
 @Getter
 public abstract class MeanStreamFactory<RecordType extends SpecificRecordBase,
-        RecordAggregationType extends SpecificRecordBase> {
+        RecordAggregationType extends SpecificRecordBase> extends AbstractStreamFactory<RecordType>{
 
     public static final float INITIAL_VALUE = 0;
     private final int windowSize;
@@ -26,28 +22,19 @@ public abstract class MeanStreamFactory<RecordType extends SpecificRecordBase,
     private final boolean debugEnabled;
     private final String outputTopicsPostfix;
     private final String inputTopic;
-    private final String schemaRegistryUrl;
-    private final Serde<RecordType> serde;
     private final Serde<RecordAggregationType> aggregateSerdes;
     private final Predicate[] predicates;
 
     protected MeanStreamFactory(final KafkaNativeConfig kafkaNativeConfig,
-                                final StreamConfig config) {
+                                final MeanStreamConfig config) {
+        super(kafkaNativeConfig);
         this.windowSize = config.getWindowSize();
         this.labels = config.getLabels();
         this.debugEnabled = config.getDebugEnabled();
         this.outputTopicsPostfix = config.getOutputTopicsPostfix();
         this.inputTopic = config.getInputTopic();
-        this.schemaRegistryUrl = kafkaNativeConfig.getSchemaRegistryUrl();
-        this.serde = prepareSerde();
         this.aggregateSerdes = prepareSerde();
         this.predicates = preparePredicates();
-    }
-
-    private <U extends SpecificRecordBase> Serde<U> prepareSerde() {
-        final Serde<U> result = new SpecificAvroSerde<>();
-        result.configure(singletonMap(SCHEMA_REGISTRY_URL_CONFIG, schemaRegistryUrl), false);
-        return result;
     }
 
     protected abstract Predicate[] preparePredicates();

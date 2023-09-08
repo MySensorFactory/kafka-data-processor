@@ -1,7 +1,7 @@
 package com.factory.kafka.config.factory;
 
 import com.factory.kafka.config.model.KafkaNativeConfig;
-import com.factory.kafka.config.model.StreamConfig;
+import com.factory.kafka.config.model.MeanStreamConfig;
 import com.factory.message.Pressure;
 import com.factory.message.PressureAggregation;
 import com.factory.message.PressureDataRecord;
@@ -22,7 +22,7 @@ import java.util.List;
 public class PressureMeanStreamFactory extends MeanStreamFactory<Pressure, PressureAggregation> {
 
     @Builder
-    public PressureMeanStreamFactory(final KafkaNativeConfig kafkaNativeConfig, final StreamConfig config) {
+    public PressureMeanStreamFactory(final KafkaNativeConfig kafkaNativeConfig, final MeanStreamConfig config) {
         super(kafkaNativeConfig, config);
     }
 
