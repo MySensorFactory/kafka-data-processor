@@ -4,16 +4,20 @@ import com.factory.kafka.config.factory.FlowRateMeanStreamFactory;
 import com.factory.kafka.config.factory.GasCompositionMeanStreamFactory;
 import com.factory.kafka.config.factory.NoiseAndVibrationMeanStreamFactory;
 import com.factory.kafka.config.factory.PressureMeanStreamFactory;
+import com.factory.kafka.config.factory.ReactionPerformanceStreamFactory;
 import com.factory.kafka.config.factory.TemperatureMeanStreamFactory;
 import com.factory.kafka.config.model.KafkaNativeConfig;
-import com.factory.kafka.config.model.StreamsConfiguration;
+import com.factory.kafka.config.model.MeanStreamsConfiguration;
+import com.factory.kafka.config.model.PerformanceStreamsConfiguration;
 import com.factory.message.FlowRate;
 import com.factory.message.GasComposition;
 import com.factory.message.NoiseAndVibration;
+import com.factory.message.Performance;
 import com.factory.message.Pressure;
 import com.factory.message.Temperature;
 import io.confluent.kafka.streams.serdes.avro.SpecificAvroSerde;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.streams.StreamsBuilder;
 import org.apache.kafka.streams.kstream.KStream;
@@ -48,9 +52,15 @@ import static org.apache.kafka.streams.StreamsConfig.REPLICATION_FACTOR_CONFIG;
 public class FactoryKafkaStreamsConfiguration {
 
     @Bean
-    @ConfigurationProperties("spring.kafka.streams")
-    public StreamsConfiguration streamsConfig() {
-        return new StreamsConfiguration();
+    @ConfigurationProperties("spring.kafka.streams.config")
+    public MeanStreamsConfiguration meanStreamsConfiguration() {
+        return new MeanStreamsConfiguration();
+    }
+
+    @Bean
+    @ConfigurationProperties("spring.kafka.streams.performance")
+    public PerformanceStreamsConfiguration performanceStreamsConfiguration() {
+        return new PerformanceStreamsConfiguration();
     }
 
     @Bean(name = KafkaStreamsDefaultConfiguration.DEFAULT_STREAMS_CONFIG_BEAN_NAME)
@@ -59,6 +69,7 @@ public class FactoryKafkaStreamsConfiguration {
         props.put(APPLICATION_ID_CONFIG, kafkaNativeConfig.getApplicationId());
         props.put(BOOTSTRAP_SERVERS_CONFIG, kafkaNativeConfig.getBootstrapAddress());
 
+        props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "latest");
         props.put(DEFAULT_KEY_SERDE_CLASS_CONFIG, Serdes.String().getClass().getName());
         props.put(DEFAULT_VALUE_SERDE_CLASS_CONFIG, SpecificAvroSerde.class.getName());
 
@@ -76,12 +87,12 @@ public class FactoryKafkaStreamsConfiguration {
 
     @Bean
     @ConditionalOnProperty(
-            value="spring.kafka.streams.config.pressure.enabled",
+            value = "spring.kafka.streams.config.mean.pressure.enabled",
             havingValue = "true")
     public PressureMeanStreamFactory pressureMeanStreamFactory(final KafkaNativeConfig kafkaNativeConfig,
-                                                               final StreamsConfiguration streamsConfiguration) {
+                                                               final MeanStreamsConfiguration meanStreamsConfiguration) {
         final var pressureConfigurationKey = "pressure";
-        final var config = streamsConfiguration.getConfig().get(pressureConfigurationKey);
+        final var config = meanStreamsConfiguration.getMean().get(pressureConfigurationKey);
         return PressureMeanStreamFactory.builder()
                 .kafkaNativeConfig(kafkaNativeConfig)
                 .config(config)
@@ -97,12 +108,12 @@ public class FactoryKafkaStreamsConfiguration {
 
     @Bean
     @ConditionalOnProperty(
-            value="spring.kafka.streams.config.temperature.enabled",
+            value = "spring.kafka.streams.config.mean.temperature.enabled",
             havingValue = "true")
     public TemperatureMeanStreamFactory temperatureMeanStreamFactory(final KafkaNativeConfig kafkaNativeConfig,
-                                                                     final StreamsConfiguration streamsConfiguration) {
+                                                                     final MeanStreamsConfiguration meanStreamsConfiguration) {
         final var pressureConfigurationKey = "temperature";
-        final var config = streamsConfiguration.getConfig().get(pressureConfigurationKey);
+        final var config = meanStreamsConfiguration.getMean().get(pressureConfigurationKey);
         return TemperatureMeanStreamFactory.builder()
                 .kafkaNativeConfig(kafkaNativeConfig)
                 .config(config)
@@ -118,12 +129,12 @@ public class FactoryKafkaStreamsConfiguration {
 
     @Bean
     @ConditionalOnProperty(
-            value="spring.kafka.streams.config.flowRate.enabled",
+            value = "spring.kafka.streams.config.mean.flowRate.enabled",
             havingValue = "true")
     public FlowRateMeanStreamFactory flowRateMeanStreamFactory(final KafkaNativeConfig kafkaNativeConfig,
-                                                               final StreamsConfiguration streamsConfiguration) {
+                                                               final MeanStreamsConfiguration meanStreamsConfiguration) {
         final var pressureConfigurationKey = "flowRate";
-        final var config = streamsConfiguration.getConfig().get(pressureConfigurationKey);
+        final var config = meanStreamsConfiguration.getMean().get(pressureConfigurationKey);
         return FlowRateMeanStreamFactory.builder()
                 .kafkaNativeConfig(kafkaNativeConfig)
                 .config(config)
@@ -139,12 +150,12 @@ public class FactoryKafkaStreamsConfiguration {
 
     @Bean
     @ConditionalOnProperty(
-            value="spring.kafka.streams.config.gasComposition.enabled",
+            value = "spring.kafka.streams.config.mean.gasComposition.enabled",
             havingValue = "true")
     public GasCompositionMeanStreamFactory gasCompositionMeanStreamFactory(final KafkaNativeConfig kafkaNativeConfig,
-                                                                           final StreamsConfiguration streamsConfiguration) {
+                                                                           final MeanStreamsConfiguration meanStreamsConfiguration) {
         final var pressureConfigurationKey = "gasComposition";
-        final var config = streamsConfiguration.getConfig().get(pressureConfigurationKey);
+        final var config = meanStreamsConfiguration.getMean().get(pressureConfigurationKey);
         return GasCompositionMeanStreamFactory.builder()
                 .kafkaNativeConfig(kafkaNativeConfig)
                 .config(config)
@@ -160,12 +171,12 @@ public class FactoryKafkaStreamsConfiguration {
 
     @Bean
     @ConditionalOnProperty(
-            value="spring.kafka.streams.config.noiseAndVibration.enabled",
+            value = "spring.kafka.streams.config.mean.noiseAndVibration.enabled",
             havingValue = "true")
     public NoiseAndVibrationMeanStreamFactory noiseAndVibrationMeanStreamFactory(final KafkaNativeConfig kafkaNativeConfig,
-                                                                                 final StreamsConfiguration streamsConfiguration) {
+                                                                                 final MeanStreamsConfiguration meanStreamsConfiguration) {
         final var pressureConfigurationKey = "noiseAndVibration";
-        final var config = streamsConfiguration.getConfig().get(pressureConfigurationKey);
+        final var config = meanStreamsConfiguration.getMean().get(pressureConfigurationKey);
         return NoiseAndVibrationMeanStreamFactory.builder()
                 .kafkaNativeConfig(kafkaNativeConfig)
                 .config(config)
@@ -178,4 +189,26 @@ public class FactoryKafkaStreamsConfiguration {
                                                                                  final NoiseAndVibrationMeanStreamFactory factory) {
         return factory.splitToMeanBranches(streamsBuilder);
     }
+
+    @Bean
+    @ConditionalOnProperty(
+            value = "spring.kafka.streams.config.performance.reaction.enabled",
+            havingValue = "true")
+    public ReactionPerformanceStreamFactory reactionPerformanceStreamFactory(final KafkaNativeConfig kafkaNativeConfig,
+                                                                             final PerformanceStreamsConfiguration streamsConfiguration) {
+        final var configurationKey = "reaction";
+        final var config = streamsConfiguration.getConfig().get(configurationKey);
+        return ReactionPerformanceStreamFactory.builder()
+                .performanceStreamConfig(config)
+                .kafkaNativeConfig(kafkaNativeConfig)
+                .build();
+    }
+
+    @Bean
+    @ConditionalOnBean(ReactionPerformanceStreamFactory.class)
+    public KStream<String, Performance> reactionPerformanceStream(final StreamsBuilder streamsBuilder,
+                                                                  final ReactionPerformanceStreamFactory factory) {
+        return factory.createPerformanceStream(streamsBuilder);
+    }
+
 }

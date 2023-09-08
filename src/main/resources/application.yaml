@@ -1,6 +1,10 @@
 spring:
   application:
     name: streams-app
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
   kafka:
     bootstrap-servers: localhost:29092
     producer:
@@ -10,40 +14,48 @@ spring:
       replication-factor: 1
       application-id: DataProcessor
       config:
-        pressure:
-          enabled: true
-          windowSize: 15
-          labels: [ AfterReturnCompressor, BeforeReturnCompressor, AfterBeginCompressor, BeforeBeginCompressor ]
-          inputTopic: pressure
-          outputTopicsPostfix: PressureMean
-          debugEnabled: true
-        temperature:
-          enabled: true
-          windowSize: 15
-          labels: [ BeforeBoiler, AfterBoiler, Return, Begin ]
-          inputTopic: temperature
-          outputTopicsPostfix: TemperatureMean
-          debugEnabled: true
-        flowRate:
-          enabled: true
-          windowSize: 15
-          labels: [ CompressedReturn, NotCompressedReturn, Input, Output ]
-          inputTopic: flowRate
-          outputTopicsPostfix: FlowRateMean
-          debugEnabled: true
-        gasComposition:
-          enabled: true
-          windowSize: 15
-          labels: [ Begin, Input, Output, Return ]
-          inputTopic: gasComposition
-          outputTopicsPostfix: GasCompositionMean
-          debugEnabled: true
-        noiseAndVibration:
-          enabled: true
-          windowSize: 15
-          labels: [ ReturnCompressor, BeginCompressor ]
-          inputTopic: noiseAndVibration
-          outputTopicsPostfix: NoiseAndVibrationMean
-          debugEnabled: true
+        mean:
+          pressure:
+            enabled: true
+            windowSize: 15
+            labels: [ AfterReturnCompressor, BeforeReturnCompressor, AfterBeginCompressor, BeforeBeginCompressor ]
+            inputTopic: pressure
+            outputTopicsPostfix: PressureMean
+            debugEnabled: true
+          temperature:
+            enabled: true
+            windowSize: 15
+            labels: [ BeforeBoiler, AfterBoiler, Return, Begin ]
+            inputTopic: temperature
+            outputTopicsPostfix: TemperatureMean
+            debugEnabled: true
+          flowRate:
+            enabled: true
+            windowSize: 15
+            labels: [ CompressedReturn, NotCompressedReturn, Input, Output ]
+            inputTopic: flowRate
+            outputTopicsPostfix: FlowRateMean
+            debugEnabled: true
+          gasComposition:
+            enabled: true
+            windowSize: 15
+            labels: [ Begin, Input, Output, Return ]
+            inputTopic: gasComposition
+            outputTopicsPostfix: GasCompositionMean
+            debugEnabled: true
+          noiseAndVibration:
+            enabled: true
+            windowSize: 15
+            labels: [ ReturnCompressor, BeginCompressor ]
+            inputTopic: noiseAndVibration
+            outputTopicsPostfix: NoiseAndVibrationMean
+            debugEnabled: true
+        performance:
+          reaction:
+            joinWindowsDurationMillis: 20000
+            inputGasCompositionMean: InputGasCompositionMean
+            outputGasCompositionMean: OutputGasCompositionMean
+            reactionPerformance: ReactionPerformance
+            debugEnabled: true
 server:
   port: 9097
