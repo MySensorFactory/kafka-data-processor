@@ -15,11 +15,12 @@ import com.factory.message.NoiseAndVibration;
 import com.factory.message.Performance;
 import com.factory.message.Pressure;
 import com.factory.message.Temperature;
+import io.confluent.kafka.serializers.subject.RecordNameStrategy;
 import io.confluent.kafka.streams.serdes.avro.SpecificAvroSerde;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.streams.StreamsBuilder;
+import org.apache.kafka.streams.StreamsConfig;
 import org.apache.kafka.streams.kstream.KStream;
 import org.apache.kafka.streams.processor.WallclockTimestampExtractor;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
@@ -38,11 +39,17 @@ import java.util.List;
 import java.util.Map;
 
 import static io.confluent.kafka.serializers.AbstractKafkaAvroSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG;
+import static io.confluent.kafka.serializers.AbstractKafkaAvroSerDeConfig.VALUE_SUBJECT_NAME_STRATEGY;
+import static io.confluent.kafka.serializers.AbstractKafkaSchemaSerDeConfig.AUTO_REGISTER_SCHEMAS;
+import static io.confluent.kafka.serializers.AbstractKafkaSchemaSerDeConfig.USE_LATEST_VERSION;
+import static org.apache.kafka.clients.consumer.ConsumerConfig.AUTO_OFFSET_RESET_CONFIG;
+import static org.apache.kafka.clients.consumer.ConsumerConfig.ISOLATION_LEVEL_CONFIG;
 import static org.apache.kafka.streams.StreamsConfig.APPLICATION_ID_CONFIG;
 import static org.apache.kafka.streams.StreamsConfig.BOOTSTRAP_SERVERS_CONFIG;
 import static org.apache.kafka.streams.StreamsConfig.DEFAULT_KEY_SERDE_CLASS_CONFIG;
 import static org.apache.kafka.streams.StreamsConfig.DEFAULT_TIMESTAMP_EXTRACTOR_CLASS_CONFIG;
 import static org.apache.kafka.streams.StreamsConfig.DEFAULT_VALUE_SERDE_CLASS_CONFIG;
+import static org.apache.kafka.streams.StreamsConfig.PROCESSING_GUARANTEE_CONFIG;
 import static org.apache.kafka.streams.StreamsConfig.REPLICATION_FACTOR_CONFIG;
 
 @Configuration
@@ -58,7 +65,7 @@ public class FactoryKafkaStreamsConfiguration {
     }
 
     @Bean
-    @ConfigurationProperties("spring.kafka.streams.performance")
+    @ConfigurationProperties("spring.kafka.streams.config")
     public PerformanceStreamsConfiguration performanceStreamsConfiguration() {
         return new PerformanceStreamsConfiguration();
     }
@@ -69,14 +76,21 @@ public class FactoryKafkaStreamsConfiguration {
         props.put(APPLICATION_ID_CONFIG, kafkaNativeConfig.getApplicationId());
         props.put(BOOTSTRAP_SERVERS_CONFIG, kafkaNativeConfig.getBootstrapAddress());
 
-        props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "latest");
+        props.put(AUTO_OFFSET_RESET_CONFIG, kafkaNativeConfig.getAutoOffsetReset());
+        props.put(ISOLATION_LEVEL_CONFIG, kafkaNativeConfig.getIsolationLevel());
+
         props.put(DEFAULT_KEY_SERDE_CLASS_CONFIG, Serdes.String().getClass().getName());
         props.put(DEFAULT_VALUE_SERDE_CLASS_CONFIG, SpecificAvroSerde.class.getName());
-
         props.put(SCHEMA_REGISTRY_URL_CONFIG, kafkaNativeConfig.getSchemaRegistryUrl());
+        props.put(AUTO_REGISTER_SCHEMAS, kafkaNativeConfig.getAutoRegisterSchemas());
+        props.put(USE_LATEST_VERSION, kafkaNativeConfig.getUseSchemasLatestVersion());
+        props.put(VALUE_SUBJECT_NAME_STRATEGY, RecordNameStrategy.class);
 
         props.put(REPLICATION_FACTOR_CONFIG, kafkaNativeConfig.getStreamsReplicationFactor());
         props.put(DEFAULT_TIMESTAMP_EXTRACTOR_CLASS_CONFIG, WallclockTimestampExtractor.class.getName());
+
+        props.put(PROCESSING_GUARANTEE_CONFIG, StreamsConfig.EXACTLY_ONCE);
+
         return new KafkaStreamsConfiguration(props);
     }
 
@@ -197,7 +211,7 @@ public class FactoryKafkaStreamsConfiguration {
     public ReactionPerformanceStreamFactory reactionPerformanceStreamFactory(final KafkaNativeConfig kafkaNativeConfig,
                                                                              final PerformanceStreamsConfiguration streamsConfiguration) {
         final var configurationKey = "reaction";
-        final var config = streamsConfiguration.getConfig().get(configurationKey);
+        final var config = streamsConfiguration.getPerformance().get(configurationKey);
         return ReactionPerformanceStreamFactory.builder()
                 .performanceStreamConfig(config)
                 .kafkaNativeConfig(kafkaNativeConfig)

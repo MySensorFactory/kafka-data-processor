@@ -9,7 +9,13 @@ spring:
     bootstrap-servers: localhost:29092
     producer:
       bootstrap-servers: localhost:29092
+    consumer:
+      enable-auto-commit: false
+      isolation-level: read_committed
+      auto-offset-reset: latest
     schemaRegistryUrl: http://localhost:8081
+    autoRegisterSchemas: false
+    useSchemasLatestVersion: true
     streams:
       replication-factor: 1
       application-id: DataProcessor
@@ -52,10 +58,11 @@ spring:
             debugEnabled: true
         performance:
           reaction:
+            enabled: true
             joinWindowsDurationMillis: 20000
-            inputGasCompositionMean: InputGasCompositionMean
-            outputGasCompositionMean: OutputGasCompositionMean
-            reactionPerformance: ReactionPerformance
+            inputTopic: InputGasCompositionMean
+            outputTopic: OutputGasCompositionMean
+            resultTopic: ReactionPerformance
             debugEnabled: true
 server:
   port: 9097

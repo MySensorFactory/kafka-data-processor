@@ -18,4 +18,16 @@ public class KafkaNativeConfig {
 
     @Value(value = "${spring.kafka.streams.application-id}")
     private String applicationId;
+
+    @Value(value = "${spring.kafka.useSchemasLatestVersion:true}")
+    private Boolean useSchemasLatestVersion;
+
+    @Value(value = "${spring.kafka.autoRegisterSchemas:false}")
+    private Boolean autoRegisterSchemas;
+
+    @Value(value = "${spring.kafka.consumer.isolation-level:read_commited}")
+    private String isolationLevel;
+
+    @Value(value = "${spring.kafka.consumer.auto-offset-reset:latest}")
+    private String autoOffsetReset;
 }

@@ -6,5 +6,5 @@ import java.util.Map;
 
 @Data
 public class PerformanceStreamsConfiguration {
-    private Map<String, PerformanceStreamConfig> config;
+    private Map<String, PerformanceStreamConfig> performance;
 }
