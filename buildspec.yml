@@ -30,14 +30,14 @@ phases:
     build:
         commands:
             - |
-                if [ "$DOCKER_BUILD" == "yes" ]; then \
+                if [ "$DOCKER_BUILD" = "yes" ]; then \
                     echo "Building ..." \
                     mvn -s settings.xml clean package -P ${BUILD_TYPE} \
                 ;fi
     post_build:
         commands:
             - |
-                if [ "$DOCKER_BUILD" == "yes" ]; then \
+                if [ "$DOCKER_BUILD" = "yes" ]; then \
                 echo "Publishing to artifact repository ..." \
                 mvn -s settings.xml deploy \
                 echo "Building docker image ..." \
