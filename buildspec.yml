@@ -31,21 +31,23 @@ phases:
     build:
         commands:
             - |
-                if [ "$DOCKER_BUILD" = "yes" ]; then \
-                    echo "Building ..." \
-                    mvn -s settings.xml clean package -P ${BUILD_TYPE} \
-                ;fi
+             #!/bin/bash \
+             if [ "$DOCKER_BUILD" = "yes" ]; then \
+                echo "Building ..." \
+                mvn -s settings.xml clean package -P ${BUILD_TYPE} \
+             ;fi
     post_build:
         commands:
             - |
-                if [ "$DOCKER_BUILD" = "yes" ]; then \
-                echo "Publishing to artifact repository ..." \
-                mvn -s settings.xml deploy \
-                echo "Building docker image ..." \
-                echo $DOCKER_PASSWORD | docker login --username $DOCKER_USERNAME --password-stdin \
-                docker build -t ${DOCKER_USERNAME}/${PROJECT_NAME} --build-arg DIRECTORY=target --build-arg SERVICE_NAME=$PROJECT_NAME . \
-                docker push ${DOCKER_USERNAME}/${PROJECT_NAME} \
-                ;fi
+              #!/bin/bash \
+              if [ "$DOCKER_BUILD" = "yes" ]; then \
+              echo "Publishing to artifact repository ..." \
+              mvn -s settings.xml deploy \
+              echo "Building docker image ..." \
+              echo $DOCKER_PASSWORD | docker login --username $DOCKER_USERNAME --password-stdin \
+              docker build -t ${DOCKER_USERNAME}/${PROJECT_NAME} --build-arg DIRECTORY=target --build-arg SERVICE_NAME=$PROJECT_NAME . \
+              docker push ${DOCKER_USERNAME}/${PROJECT_NAME} \
+              ;fi
             - echo "Sending application manifests to S3 ..."
             - aws s3 cp kube s3://factory-ci-cd/applications/$PROJECT_NAME/ --recursive
             - echo "Deploying ..."
