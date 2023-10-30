@@ -5,6 +5,8 @@ env:
         PROJECT_NAME: kafka-data-processor
         DOCKER_BUILD: yes
         BUILD_TYPE: default
+        S3_DEPLOY_CONFIG_DIR: applications/sqs-kafka-forwarder/
+        S3_CICD_FUNCTIONS_DESTINATION: applications/cicd
 
 phases: 
     install:
@@ -15,27 +17,39 @@ phases:
             - apt install docker.io curl -y
             - nohup /usr/local/bin/dockerd --host=unix:///var/run/docker.sock --host=tcp://127.0.0.1:2375 --storage-driver=overlay2&
             - timeout 15 sh -c "until docker info; do echo .; sleep 1; done"
+            - sudo apt install python3 -y
+            - sudo apt install python3-pip -y
+            - pip3 install kubernetes
+            - pip3 install boto3
     pre_build:
         commands:
             - echo "Fetching repository token ..."
             - export CODEARTIFACT_AUTH_TOKEN=`aws codeartifact get-authorization-token --domain factory --domain-owner 781648067507 --region eu-central-1 --query authorizationToken --output text`
             - echo "Pulling settings.xml"
             - aws s3 cp s3://factory-ci-cd/settings.xml settings.xml
+            - aws s3 cp s3://${BUCKET_NAME}/${S3_CICD_FUNCTIONS_DESTINATION}/ ./ --recursive
     build:
         commands:
-            - echo "Building ..."
-            - mvn -s settings.xml clean package -P ${BUILD_TYPE}
+            - |
+                if [ "$DOCKER_BUILD" == "yes"]; then \
+                    echo "Building ..." \
+                    mvn -s settings.xml clean package -P ${BUILD_TYPE} \
+                ;f
     post_build:
         commands:
             - echo "Publishing to artifact repository ..."
-            - mvn -s settings.xml deploy
-            - if [ "$DOCKER_BUILD" != "yes"]; then exit 0; fi
-            - echo "Building docker image ..."
-            - echo $DOCKER_PASSWORD | docker login --username $DOCKER_USERNAME --password-stdin
-            - docker build -t ${DOCKER_USERNAME}/${PROJECT_NAME} --build-arg DIRECTORY=target --build-arg SERVICE_NAME=$PROJECT_NAME .
-            - docker push ${DOCKER_USERNAME}/${PROJECT_NAME}
+            - |
+                if [ "$DOCKER_BUILD" == "yes"]; then \
+                mvn -s settings.xml deploy \
+                echo "Building docker image ..." \
+                echo $DOCKER_PASSWORD | docker login --username $DOCKER_USERNAME --password-stdin \
+                docker build -t ${DOCKER_USERNAME}/${PROJECT_NAME} --build-arg DIRECTORY=target --build-arg SERVICE_NAME=$PROJECT_NAME . \
+                docker push ${DOCKER_USERNAME}/${PROJECT_NAME} \
+                ;fi
             - echo "Sending application manifests to S3 ..."
             - aws s3 cp kube s3://factory-ci-cd/applications/$PROJECT_NAME/ --recursive
+            - echo "Deploying ..."
+            - python3 functions/deploy_notifier.py
 cache:
     paths:
         - '/root/.m2/**/*'
