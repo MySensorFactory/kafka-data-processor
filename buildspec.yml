@@ -12,6 +12,7 @@ phases:
         runtime-versions:
             java: corretto17
         commands:
+            - env
             - apt update -y
             - apt install docker.io curl -y
             - nohup /usr/local/bin/dockerd --host=unix:///var/run/docker.sock --host=tcp://127.0.0.1:2375 --storage-driver=overlay2&
