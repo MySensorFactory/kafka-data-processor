@@ -12,6 +12,7 @@ phases:
         runtime-versions:
             java: corretto17
         commands:
+            - env
             - apt update -y
             - apt install docker.io curl -y
             - nohup /usr/local/bin/dockerd --host=unix:///var/run/docker.sock --host=tcp://127.0.0.1:2375 --storage-driver=overlay2&
@@ -30,21 +31,21 @@ phases:
     build:
         commands:
             - |
-             if [ "$DOCKER_BUILD" == "yes"]; then \
-                echo "Building ..." \
-                mvn -s settings.xml clean package -P ${BUILD_TYPE} \
-             ;fi
+                if [ "$DOCKER_BUILD" == "yes"]; then \
+                    echo "Building ..." \
+                    mvn -s settings.xml clean package -P ${BUILD_TYPE} \
+                ;fi
     post_build:
         commands:
             - echo "Publishing to artifact repository ..."
             - |
-              if [ "$DOCKER_BUILD" == "yes"]; then \
-              mvn -s settings.xml deploy \
-              echo "Building docker image ..." \
-              echo $DOCKER_PASSWORD | docker login --username $DOCKER_USERNAME --password-stdin \
-              docker build -t ${DOCKER_USERNAME}/${PROJECT_NAME} --build-arg DIRECTORY=target --build-arg SERVICE_NAME=$PROJECT_NAME . \
-              docker push ${DOCKER_USERNAME}/${PROJECT_NAME} \
-              ;fi
+                if [ "$DOCKER_BUILD" == "yes"]; then \
+                mvn -s settings.xml deploy \
+                echo "Building docker image ..." \
+                echo $DOCKER_PASSWORD | docker login --username $DOCKER_USERNAME --password-stdin \
+                docker build -t ${DOCKER_USERNAME}/${PROJECT_NAME} --build-arg DIRECTORY=target --build-arg SERVICE_NAME=$PROJECT_NAME . \
+                docker push ${DOCKER_USERNAME}/${PROJECT_NAME} \
+                ;fi
             - echo "Sending application manifests to S3 ..."
             - aws s3 cp kube s3://factory-ci-cd/applications/$PROJECT_NAME/ --recursive
             - echo "Deploying ..."
