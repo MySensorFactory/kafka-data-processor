@@ -12,7 +12,6 @@ phases:
         runtime-versions:
             java: corretto17
         commands:
-            - env
             - apt update -y
             - apt install docker.io curl -y
             - nohup /usr/local/bin/dockerd --host=unix:///var/run/docker.sock --host=tcp://127.0.0.1:2375 --storage-driver=overlay2&
@@ -31,15 +30,15 @@ phases:
     build:
         commands:
             - |
-                if [ "$DOCKER_BUILD" == "yes"]; then \
+                if [ "$DOCKER_BUILD" == "yes" ]; then \
                     echo "Building ..." \
                     mvn -s settings.xml clean package -P ${BUILD_TYPE} \
                 ;fi
     post_build:
         commands:
-            - echo "Publishing to artifact repository ..."
             - |
-                if [ "$DOCKER_BUILD" == "yes"]; then \
+                if [ "$DOCKER_BUILD" == "yes" ]; then \
+                echo "Publishing to artifact repository ..." \
                 mvn -s settings.xml deploy \
                 echo "Building docker image ..." \
                 echo $DOCKER_PASSWORD | docker login --username $DOCKER_USERNAME --password-stdin \
