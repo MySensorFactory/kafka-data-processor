@@ -30,12 +30,7 @@ phases:
             - aws s3 cp s3://${BUCKET_NAME}/${S3_CICD_FUNCTIONS_DESTINATION}/ ./ --recursive
     build:
         commands:
-            - |
-             #!/bin/bash \
-             if [ "$DOCKER_BUILD" = "yes" ]; then \
-                echo "Building ..." \
-                mvn -s settings.xml clean package -P ${BUILD_TYPE} \
-             ;fi
+            - if [ "$DOCKER_BUILD" = "yes" ]; then bash functions/mvn_build.sh ;fi
     post_build:
         commands:
             - |
