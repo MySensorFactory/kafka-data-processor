@@ -3,7 +3,6 @@ version: 0.2
 env:
     variables:
         PROJECT_NAME: kafka-data-processor
-        DOCKER_BUILD: yes
         BUILD_TYPE: default
         S3_DEPLOY_CONFIG_DIR: applications/kafka-data-processor/
         S3_CICD_FUNCTIONS_DESTINATION: applications/cicd
