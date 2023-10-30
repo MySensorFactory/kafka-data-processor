@@ -34,7 +34,7 @@ phases:
                 if [ "$DOCKER_BUILD" == "yes"]; then \
                     echo "Building ..." \
                     mvn -s settings.xml clean package -P ${BUILD_TYPE} \
-                ;f
+                ;fi
     post_build:
         commands:
             - echo "Publishing to artifact repository ..."
