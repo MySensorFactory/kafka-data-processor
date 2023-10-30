@@ -1,0 +1,3 @@
+order:
+  - deploy.yml
+  - svc.yml

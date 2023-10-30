@@ -2,10 +2,11 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: kafka-data-processor-deployment
+  namespace: factory
   labels:
     app: kafka-data-processor
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: kafka-data-processor
