@@ -73,11 +73,11 @@ public class FactoryKafkaStreamsConfiguration {
     @Bean(name = KafkaStreamsDefaultConfiguration.DEFAULT_STREAMS_CONFIG_BEAN_NAME)
     public KafkaStreamsConfiguration kStreamsConfigs(final KafkaNativeConfig kafkaNativeConfig) {
         Map<String, Object> props = new HashMap<>();
-        props.put(APPLICATION_ID_CONFIG, kafkaNativeConfig.getApplicationId());
-        props.put(BOOTSTRAP_SERVERS_CONFIG, kafkaNativeConfig.getBootstrapAddress());
+        props.put(APPLICATION_ID_CONFIG, kafkaNativeConfig.getStreams().getApplicationId());
+        props.put(BOOTSTRAP_SERVERS_CONFIG, kafkaNativeConfig.getBootstrapServers());
 
-        props.put(AUTO_OFFSET_RESET_CONFIG, kafkaNativeConfig.getAutoOffsetReset());
-        props.put(ISOLATION_LEVEL_CONFIG, kafkaNativeConfig.getIsolationLevel());
+        props.put(AUTO_OFFSET_RESET_CONFIG, kafkaNativeConfig.getConsumer().getAutoOffsetReset());
+        props.put(ISOLATION_LEVEL_CONFIG, kafkaNativeConfig.getConsumer().getIsolationLevel());
 
         props.put(DEFAULT_KEY_SERDE_CLASS_CONFIG, Serdes.String().getClass().getName());
         props.put(DEFAULT_VALUE_SERDE_CLASS_CONFIG, SpecificAvroSerde.class.getName());
@@ -86,7 +86,7 @@ public class FactoryKafkaStreamsConfiguration {
         props.put(USE_LATEST_VERSION, kafkaNativeConfig.getUseSchemasLatestVersion());
         props.put(VALUE_SUBJECT_NAME_STRATEGY, RecordNameStrategy.class);
 
-        props.put(REPLICATION_FACTOR_CONFIG, kafkaNativeConfig.getStreamsReplicationFactor());
+        props.put(REPLICATION_FACTOR_CONFIG, kafkaNativeConfig.getStreams().getReplicationFactor());
         props.put(DEFAULT_TIMESTAMP_EXTRACTOR_CLASS_CONFIG, WallclockTimestampExtractor.class.getName());
 
         props.put(PROCESSING_GUARANTEE_CONFIG, StreamsConfig.EXACTLY_ONCE);

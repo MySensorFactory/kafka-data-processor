@@ -1,33 +1,40 @@
 package com.factory.kafka.config.model;
 
-import lombok.Getter;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Configuration;
+import lombok.Data;
+import org.springframework.boot.context.properties.ConfigurationProperties;
 
-@Configuration
-@Getter
+import java.util.List;
+
+@Data
+@ConfigurationProperties("spring.kafka")
 public class KafkaNativeConfig {
-    @Value(value = "${spring.kafka.bootstrap-servers}")
-    private String bootstrapAddress;
 
-    @Value(value = "${spring.kafka.schemaRegistryUrl}")
+    private List<String> bootstrapServers;
+
     private String schemaRegistryUrl;
 
-    @Value(value = "${spring.kafka.streams.replication-factor}")
-    private String streamsReplicationFactor;
+    private Boolean useSchemasLatestVersion = true;
 
-    @Value(value = "${spring.kafka.streams.application-id}")
-    private String applicationId;
+    private Boolean autoRegisterSchemas = false;
 
-    @Value(value = "${spring.kafka.useSchemasLatestVersion:true}")
-    private Boolean useSchemasLatestVersion;
+    private Streams streams;
 
-    @Value(value = "${spring.kafka.autoRegisterSchemas:false}")
-    private Boolean autoRegisterSchemas;
+    private Consumer consumer;
 
-    @Value(value = "${spring.kafka.consumer.isolation-level:read_commited}")
-    private String isolationLevel;
+    @Data
+    public static class Streams {
 
-    @Value(value = "${spring.kafka.consumer.auto-offset-reset:latest}")
-    private String autoOffsetReset;
+        private String replicationFactor;
+
+        private String applicationId;
+    }
+
+    @Data
+    public static class Consumer {
+
+        private String isolationLevel = "read_commited";
+
+        private String autoOffsetReset = "latest";
+    }
+
 }
