@@ -1,5 +1,6 @@
-package com.factory.kafka.config.factory;
+package com.factory.kafka.config.factory.mean;
 
+import com.factory.kafka.config.factory.AbstractStreamFactory;
 import com.factory.kafka.config.model.KafkaNativeConfig;
 import com.factory.kafka.config.model.MeanStreamConfig;
 import lombok.Getter;
@@ -8,13 +9,15 @@ import org.apache.kafka.common.serialization.Serde;
 import org.apache.kafka.streams.StreamsBuilder;
 import org.apache.kafka.streams.kstream.KStream;
 import org.apache.kafka.streams.kstream.Predicate;
+import org.apache.kafka.streams.kstream.TimeWindows;
 
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
 
 @Getter
 public abstract class MeanStreamFactory<RecordType extends SpecificRecordBase,
-        RecordAggregationType extends SpecificRecordBase> extends AbstractStreamFactory<RecordType>{
+        RecordAggregationType extends SpecificRecordBase> extends AbstractStreamFactory<RecordType> {
 
     public static final float INITIAL_VALUE = 0;
     private final int windowSize;
@@ -50,5 +53,9 @@ public abstract class MeanStreamFactory<RecordType extends SpecificRecordBase,
     public List<KStream<String, RecordType>> splitToMeanBranches(final StreamsBuilder streamsBuilder) {
         final KStream<String, RecordType> stream = streamsBuilder.stream(this.inputTopic);
         return splitToMeanBranches(stream);
+    }
+
+    protected TimeWindows getWindowing() {
+        return TimeWindows.ofSizeWithNoGrace(Duration.ofSeconds(getWindowSize()));
     }
 }

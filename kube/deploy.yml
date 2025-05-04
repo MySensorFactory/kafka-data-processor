@@ -15,9 +15,19 @@ spec:
       labels:
         app: kafka-data-processor
     spec:
+      volumes:
+        - name: config-volume
+          configMap:
+            name: kafka-data-processor-cm
       containers:
         - name: kafka-data-processor
           imagePullPolicy: Always
           image: juliantheking/kafka-data-processor
           ports:
             - containerPort: 8080
+          volumeMounts:
+            - name: config-volume
+              mountPath: /config
+          env:
+            - name: SPRING_CONFIG_LOCATION
+              value: /config/application.yaml

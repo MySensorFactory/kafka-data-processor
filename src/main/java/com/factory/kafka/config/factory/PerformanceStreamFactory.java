@@ -40,9 +40,9 @@ public abstract class PerformanceStreamFactory<T> extends AbstractStreamFactory<
         );
         resultStream.to(resultTopic, Produced.with(Serdes.String(), getSerde()));
 
-        if(Boolean.TRUE.equals(performanceStreamConfig.getDebugEnabled())){
-            resultStream.print(Printed.toSysOut());
-        }
+//        if(Boolean.TRUE.equals(performanceStreamConfig.getDebugEnabled())){
+//            resultStream.print(Printed.toSysOut());
+//        }
 
         return resultStream;
     }

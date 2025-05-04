@@ -1,14 +1,22 @@
 package com.factory.kafka.config;
 
-import com.factory.kafka.config.factory.FlowRateMeanStreamFactory;
-import com.factory.kafka.config.factory.GasCompositionMeanStreamFactory;
-import com.factory.kafka.config.factory.NoiseAndVibrationMeanStreamFactory;
-import com.factory.kafka.config.factory.PressureMeanStreamFactory;
+import com.factory.kafka.config.factory.events.EventsStreamFactory;
+import com.factory.kafka.config.factory.events.FlowRateEventsStreamFactory;
+import com.factory.kafka.config.factory.events.GasCompositionEventsStreamFactory;
+import com.factory.kafka.config.factory.events.NoiseAndVibrationEventsStreamFactory;
+import com.factory.kafka.config.factory.events.PressureEventsStreamFactory;
+import com.factory.kafka.config.factory.events.TemperatureEventsStreamFactory;
+import com.factory.kafka.config.factory.mean.FlowRateMeanStreamFactory;
+import com.factory.kafka.config.factory.mean.GasCompositionMeanStreamFactory;
+import com.factory.kafka.config.factory.mean.NoiseAndVibrationMeanStreamFactory;
+import com.factory.kafka.config.factory.mean.PressureMeanStreamFactory;
 import com.factory.kafka.config.factory.ReactionPerformanceStreamFactory;
-import com.factory.kafka.config.factory.TemperatureMeanStreamFactory;
+import com.factory.kafka.config.factory.mean.TemperatureMeanStreamFactory;
+import com.factory.kafka.config.model.EventsStreamsConfiguration;
 import com.factory.kafka.config.model.KafkaNativeConfig;
 import com.factory.kafka.config.model.MeanStreamsConfiguration;
 import com.factory.kafka.config.model.PerformanceStreamsConfiguration;
+import com.factory.message.Event;
 import com.factory.message.FlowRate;
 import com.factory.message.GasComposition;
 import com.factory.message.NoiseAndVibration;
@@ -57,18 +65,6 @@ import static org.apache.kafka.streams.StreamsConfig.REPLICATION_FACTOR_CONFIG;
 @EnableKafkaStreams
 @Slf4j
 public class FactoryKafkaStreamsConfiguration {
-
-    @Bean
-    @ConfigurationProperties("spring.kafka.streams.config")
-    public MeanStreamsConfiguration meanStreamsConfiguration() {
-        return new MeanStreamsConfiguration();
-    }
-
-    @Bean
-    @ConfigurationProperties("spring.kafka.streams.config")
-    public PerformanceStreamsConfiguration performanceStreamsConfiguration() {
-        return new PerformanceStreamsConfiguration();
-    }
 
     @Bean(name = KafkaStreamsDefaultConfiguration.DEFAULT_STREAMS_CONFIG_BEAN_NAME)
     public KafkaStreamsConfiguration kStreamsConfigs(final KafkaNativeConfig kafkaNativeConfig) {
@@ -225,4 +221,100 @@ public class FactoryKafkaStreamsConfiguration {
         return factory.createPerformanceStream(streamsBuilder);
     }
 
+    // Events Stream Factories
+
+    @Bean
+    @ConditionalOnProperty(
+            value = "spring.kafka.streams.config.events.temperature.enabled",
+            havingValue = "true")
+    public TemperatureEventsStreamFactory temperatureEventsStreamFactory(final KafkaNativeConfig kafkaNativeConfig,
+                                                                     final EventsStreamsConfiguration eventsStreamsConfiguration) {
+        return TemperatureEventsStreamFactory.builder()
+                .kafkaNativeConfig(kafkaNativeConfig)
+                .eventsStreamConfig(eventsStreamsConfiguration.getTemperature())
+                .build();
+    }
+
+    @Bean
+    @ConditionalOnBean(TemperatureEventsStreamFactory.class)
+    public KStream<String, Event> temperatureEventsStream(final StreamsBuilder streamsBuilder,
+                                                     final TemperatureEventsStreamFactory factory) {
+        return factory.createEventsStream(streamsBuilder);
+    }
+
+    @Bean
+    @ConditionalOnProperty(
+            value = "spring.kafka.streams.config.events.pressure.enabled",
+            havingValue = "true")
+    public PressureEventsStreamFactory pressureEventsStreamFactory(final KafkaNativeConfig kafkaNativeConfig,
+                                                               final EventsStreamsConfiguration eventsStreamsConfiguration) {
+        return PressureEventsStreamFactory.builder()
+                .kafkaNativeConfig(kafkaNativeConfig)
+                .eventsStreamConfig(eventsStreamsConfiguration.getPressure())
+                .build();
+    }
+
+    @Bean
+    @ConditionalOnBean(PressureEventsStreamFactory.class)
+    public KStream<String, Event> pressureEventsStream(final StreamsBuilder streamsBuilder,
+                                                  final PressureEventsStreamFactory factory) {
+        return factory.createEventsStream(streamsBuilder);
+    }
+
+    @Bean
+    @ConditionalOnProperty(
+            value = "spring.kafka.streams.config.events.flowRate.enabled",
+            havingValue = "true")
+    public FlowRateEventsStreamFactory flowRateEventsStreamFactory(final KafkaNativeConfig kafkaNativeConfig,
+                                                               final EventsStreamsConfiguration eventsStreamsConfiguration) {
+        return FlowRateEventsStreamFactory.builder()
+                .kafkaNativeConfig(kafkaNativeConfig)
+                .eventsStreamConfig(eventsStreamsConfiguration.getFlowRate())
+                .build();
+    }
+
+    @Bean
+    @ConditionalOnBean(FlowRateEventsStreamFactory.class)
+    public KStream<String, Event> flowRateEventsStream(final StreamsBuilder streamsBuilder,
+                                                  final FlowRateEventsStreamFactory factory) {
+        return factory.createEventsStream(streamsBuilder);
+    }
+
+    @Bean
+    @ConditionalOnProperty(
+            value = "spring.kafka.streams.config.events.gasComposition.enabled",
+            havingValue = "true")
+    public GasCompositionEventsStreamFactory gasCompositionEventsStreamFactory(final KafkaNativeConfig kafkaNativeConfig,
+                                                                           final EventsStreamsConfiguration eventsStreamsConfiguration) {
+        return GasCompositionEventsStreamFactory.builder()
+                .kafkaNativeConfig(kafkaNativeConfig)
+                .eventsStreamConfig(eventsStreamsConfiguration.getGasComposition())
+                .build();
+    }
+
+    @Bean
+    @ConditionalOnBean(GasCompositionEventsStreamFactory.class)
+    public KStream<String, Event> gasCompositionEventsStream(final StreamsBuilder streamsBuilder,
+                                                        final GasCompositionEventsStreamFactory factory) {
+        return factory.createEventsStream(streamsBuilder);
+    }
+
+    @Bean
+    @ConditionalOnProperty(
+            value = "spring.kafka.streams.config.events.noiseAndVibration.enabled",
+            havingValue = "true")
+    public NoiseAndVibrationEventsStreamFactory noiseAndVibrationEventsStreamFactory(final KafkaNativeConfig kafkaNativeConfig,
+                                                                                 final EventsStreamsConfiguration eventsStreamsConfiguration) {
+        return NoiseAndVibrationEventsStreamFactory.builder()
+                .kafkaNativeConfig(kafkaNativeConfig)
+                .eventsStreamConfig(eventsStreamsConfiguration.getNoiseAndVibration())
+                .build();
+    }
+
+    @Bean
+    @ConditionalOnBean(NoiseAndVibrationEventsStreamFactory.class)
+    public KStream<String, Event> noiseAndVibrationEventsStream(final StreamsBuilder streamsBuilder,
+                                                           final NoiseAndVibrationEventsStreamFactory factory) {
+        return factory.createEventsStream(streamsBuilder);
+    }
 }

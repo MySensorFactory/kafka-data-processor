@@ -6,52 +6,58 @@ spring:
       - org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration
       - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
   kafka:
-    bootstrap-servers: kafka-cluster:9092
+    bootstrap-servers:
+      - kafka-cluster.local:9092
+      - kafka-cluster.local:9093
+      - kafka-cluster.local:9094
     producer:
-      bootstrap-servers: kafka-cluster:9092
+      bootstrap-servers:
+        - kafka-cluster.local:9092
+        - kafka-cluster.local:9093
+        - kafka-cluster.local:9094
     consumer:
       enable-auto-commit: false
       isolation-level: read_committed
       auto-offset-reset: latest
-    schemaRegistryUrl: http://schema-registry-svc:8081
-    autoRegisterSchemas: false
+    schemaRegistryUrl: http://schema-registry.local
+    autoRegisterSchemas: true
     useSchemasLatestVersion: true
     streams:
-      replication-factor: 1
+      replication-factor: 3
       application-id: DataProcessor
       config:
         mean:
           pressure:
             enabled: true
-            windowSize: 15
+            windowSize: 60
             labels: [ AfterReturnCompressor, BeforeReturnCompressor, AfterBeginCompressor, BeforeBeginCompressor ]
             inputTopic: pressure
             outputTopicsPostfix: PressureMean
             debugEnabled: true
           temperature:
             enabled: true
-            windowSize: 15
+            windowSize: 60
             labels: [ BeforeBoiler, AfterBoiler, Return, Begin ]
             inputTopic: temperature
             outputTopicsPostfix: TemperatureMean
             debugEnabled: true
           flowRate:
             enabled: true
-            windowSize: 15
+            windowSize: 60
             labels: [ CompressedReturn, NotCompressedReturn, Input, Output ]
             inputTopic: flowRate
             outputTopicsPostfix: FlowRateMean
             debugEnabled: true
           gasComposition:
             enabled: true
-            windowSize: 15
+            windowSize: 60
             labels: [ Begin, Input, Output, Return ]
             inputTopic: gasComposition
             outputTopicsPostfix: GasCompositionMean
             debugEnabled: true
           noiseAndVibration:
             enabled: true
-            windowSize: 15
+            windowSize: 60
             labels: [ ReturnCompressor, BeginCompressor ]
             inputTopic: noiseAndVibration
             outputTopicsPostfix: NoiseAndVibrationMean
@@ -64,5 +70,97 @@ spring:
             outputTopic: OutputGasCompositionMean
             resultTopic: ReactionPerformance
             debugEnabled: true
+        events:
+          temperature:
+            enabled: true
+            inputTopic: temperature
+            outputTopic: events
+            debugEnabled: true
+            thresholds:
+              BeforeBoiler:
+                warningThreshold: 85.0
+                criticalThreshold: 95.0
+              AfterBoiler:
+                warningThreshold: 150.0
+                criticalThreshold: 180.0
+              Return:
+                warningThreshold: 70.0
+                criticalThreshold: 85.0
+              Begin:
+                warningThreshold: 60.0
+                criticalThreshold: 70.0
+          pressure:
+            enabled: true
+            inputTopic: pressure
+            outputTopic: events
+            debugEnabled: true
+            thresholds:
+              AfterReturnCompressor:
+                warningThreshold: 8.5
+                criticalThreshold: 9.5
+              BeforeReturnCompressor:
+                warningThreshold: 3.0
+                criticalThreshold: 4.0
+              AfterBeginCompressor:
+                warningThreshold: 8.5
+                criticalThreshold: 9.5
+              BeforeBeginCompressor:
+                warningThreshold: 3.0
+                criticalThreshold: 4.0
+          flowRate:
+            enabled: true
+            inputTopic: flowRate
+            outputTopic: events
+            debugEnabled: true
+            thresholds:
+              CompressedReturn:
+                warningThreshold: 250.0
+                criticalThreshold: 300.0
+              NotCompressedReturn:
+                warningThreshold: 150.0
+                criticalThreshold: 200.0
+              Input:
+                warningThreshold: 400.0
+                criticalThreshold: 500.0
+              Output:
+                warningThreshold: 350.0
+                criticalThreshold: 450.0
+          gasComposition:
+            enabled: true
+            inputTopic: gasComposition
+            outputTopic: events
+            debugEnabled: true
+            thresholds:
+              Begin:
+                warningThreshold: 90.0
+                criticalThreshold: 95.0
+              Input:
+                warningThreshold: 85.0
+                criticalThreshold: 90.0
+              Output:
+                warningThreshold: 85.0
+                criticalThreshold: 90.0
+              Return:
+                warningThreshold: 80.0
+                criticalThreshold: 85.0
+          noiseAndVibration:
+            enabled: true
+            inputTopic: noiseAndVibration
+            outputTopic: events
+            debugEnabled: true
+            thresholds:
+              ReturnCompressor:
+                warningThreshold: 20.0
+                criticalThreshold: 30.0
+              BeginCompressor:
+                warningThreshold: 20.0
+                criticalThreshold: 30.0
 server:
   port: 8080
+
+logging:
+  level:
+    org:
+      apache:
+        kafka:
+          streams: warn

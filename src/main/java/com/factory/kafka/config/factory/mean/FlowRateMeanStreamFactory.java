@@ -1,4 +1,4 @@
-package com.factory.kafka.config.factory;
+package com.factory.kafka.config.factory.mean;
 
 import com.factory.kafka.config.model.KafkaNativeConfig;
 import com.factory.kafka.config.model.MeanStreamConfig;
@@ -8,14 +8,8 @@ import com.factory.message.FlowRateDataRecord;
 import lombok.Builder;
 import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.streams.KeyValue;
-import org.apache.kafka.streams.kstream.KStream;
-import org.apache.kafka.streams.kstream.Materialized;
-import org.apache.kafka.streams.kstream.Predicate;
-import org.apache.kafka.streams.kstream.Printed;
-import org.apache.kafka.streams.kstream.Produced;
-import org.apache.kafka.streams.kstream.TimeWindows;
+import org.apache.kafka.streams.kstream.*;
 
-import java.time.Duration;
 import java.time.ZonedDateTime;
 import java.util.List;
 
@@ -37,9 +31,10 @@ public class FlowRateMeanStreamFactory extends MeanStreamFactory<FlowRate, FlowR
         var result = splitToPredicatedBranches(inputStream);
 
         for (var FlowRateStream : result) {
-            FlowRateStream.
-                    groupByKey()
-                    .windowedBy(TimeWindows.of(Duration.ofSeconds(getWindowSize())))
+            FlowRateStream
+                    .groupBy((key, value) -> value.getLabel().toString(),
+                            Grouped.with(Serdes.String(), getSerde()))
+                    .windowedBy(getWindowing())
                     .aggregate(
                             () -> FlowRateAggregation.newBuilder()
                                     .setData(FlowRate.newBuilder()
@@ -64,6 +59,7 @@ public class FlowRateMeanStreamFactory extends MeanStreamFactory<FlowRate, FlowR
                                     .build(),
                             Materialized.with(Serdes.String(), getAggregateSerdes())
                     )
+                    .suppress(Suppressed.untilWindowCloses(Suppressed.BufferConfig.unbounded()))
                     .toStream()
                     .map((key, value) -> KeyValue.pair(key.key(),
                             FlowRate.newBuilder()
@@ -76,10 +72,6 @@ public class FlowRateMeanStreamFactory extends MeanStreamFactory<FlowRate, FlowR
                     )
                     .to((key, value, recordContext) -> value.getLabel().toString() + getOutputTopicsPostfix(),
                             Produced.with(Serdes.String(), getSerde()));
-
-            if (isDebugEnabled()) {
-                FlowRateStream.print(Printed.toSysOut());
-            }
         }
 
         return result;

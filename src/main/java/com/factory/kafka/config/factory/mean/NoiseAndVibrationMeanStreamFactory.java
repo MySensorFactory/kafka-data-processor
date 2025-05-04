@@ -1,4 +1,4 @@
-package com.factory.kafka.config.factory;
+package com.factory.kafka.config.factory.mean;
 
 import com.factory.kafka.config.model.KafkaNativeConfig;
 import com.factory.kafka.config.model.MeanStreamConfig;
@@ -9,14 +9,8 @@ import com.factory.message.VibrationDataRecord;
 import lombok.Builder;
 import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.streams.KeyValue;
-import org.apache.kafka.streams.kstream.KStream;
-import org.apache.kafka.streams.kstream.Materialized;
-import org.apache.kafka.streams.kstream.Predicate;
-import org.apache.kafka.streams.kstream.Printed;
-import org.apache.kafka.streams.kstream.Produced;
-import org.apache.kafka.streams.kstream.TimeWindows;
+import org.apache.kafka.streams.kstream.*;
 
-import java.time.Duration;
 import java.time.ZonedDateTime;
 import java.util.List;
 
@@ -38,9 +32,10 @@ public class NoiseAndVibrationMeanStreamFactory extends MeanStreamFactory<NoiseA
         var result = splitToPredicatedBranches(inputStream);
 
         for (var NoiseAndVibrationStream : result) {
-            NoiseAndVibrationStream.
-                    groupByKey()
-                    .windowedBy(TimeWindows.of(Duration.ofSeconds(getWindowSize())))
+            NoiseAndVibrationStream
+                    .groupBy((key, value) -> value.getLabel().toString(),
+                            Grouped.with(Serdes.String(), getSerde()))
+                    .windowedBy(getWindowing())
                     .aggregate(
                             () -> NoiseAndVibrationAggregation.newBuilder()
                                     .setData(NoiseAndVibration.newBuilder()
@@ -73,6 +68,7 @@ public class NoiseAndVibrationMeanStreamFactory extends MeanStreamFactory<NoiseA
                                     .build(),
                             Materialized.with(Serdes.String(), getAggregateSerdes())
                     )
+                    .suppress(Suppressed.untilWindowCloses(Suppressed.BufferConfig.unbounded()))
                     .toStream()
                     .map((key, value) -> KeyValue.pair(key.key(),
                             NoiseAndVibration.newBuilder()
@@ -90,9 +86,9 @@ public class NoiseAndVibrationMeanStreamFactory extends MeanStreamFactory<NoiseA
                     .to((key, value, recordContext) -> value.getLabel().toString() + getOutputTopicsPostfix(),
                             Produced.with(Serdes.String(), getSerde()));
 
-            if (isDebugEnabled()) {
-                NoiseAndVibrationStream.print(Printed.toSysOut());
-            }
+//            if (isDebugEnabled()) {
+//                NoiseAndVibrationStream.print(Printed.toSysOut());
+//            }
         }
 
         return result;
