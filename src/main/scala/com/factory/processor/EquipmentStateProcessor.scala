@@ -121,7 +121,7 @@ class EquipmentStateProcessor(
       logger.info(s"Setting up output for $outputTopicName with subject $outputSubjectName")
 
       // Fetch schema ID for output Avro schema from SR
-      val schemaId = restService.getLatestVersion(outputSubjectName).getId()
+      val schemaId = restService.getLatestVersion(outputSubjectName).getId
 
       val dfForAvro = predictionsDF.select(
         struct(
