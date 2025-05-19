@@ -132,6 +132,7 @@ class EventProcessor(
       .option("kafka.bootstrap.servers", kafkaConfig.bootstrapServers)
       .option("subscribe", config.inputTopic)
       .option("startingOffsets", "latest")
+      .option("failOnDataLoss", "false")
       .load()
 
     val deserializedStream: Dataset[SensorReading] = inputStream
@@ -177,7 +178,6 @@ class EventProcessor(
       .option("topic", resultTopic)
       .option("checkpointLocation", checkpointLocation)
       .outputMode("append")
-      .trigger(Trigger.ProcessingTime("30 seconds"))
       .start()
 
     if (config.debugEnabled) {

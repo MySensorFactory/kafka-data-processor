@@ -23,7 +23,6 @@ object SparkDataProcessor {
 
     try {
       if (config.events.enabled) {
-        logger.info("Initializing event processors")
         if (config.events.pressure.enabled) {
           new EventProcessor(
             spark,
@@ -62,28 +61,25 @@ object SparkDataProcessor {
         }
       }
 
-//      if (config.mean.enabled) {
-//        logger.info("Initializing mean processors")
-//        if (config.mean.pressure.enabled) {
-//          new MeanProcessor[Pressure](spark, config.mean.pressure, config.kafka, "pressure")(Encoders.product[Pressure]).start()
-//        }
-//        if (config.mean.temperature.enabled) {
-//          new MeanProcessor[Temperature](spark, config.mean.temperature, config.kafka, "temperature")(Encoders.product[Temperature]).start()
-//        }
-//        if (config.mean.humidity.enabled) {
-//          new MeanProcessor[Humidity](spark, config.mean.humidity, config.kafka, "humidity")(Encoders.product[Humidity]).start()
-//        }
-//        if (config.mean.vibration.enabled) {
-//          new MeanProcessor[Vibration](spark, config.mean.vibration, config.kafka, "vibration")(Encoders.product[Vibration]).start()
-//        }
-//      }
+      if (config.mean.enabled) {
+        if (config.mean.pressure.enabled) {
+          new MeanProcessor[Pressure](spark, config.mean.pressure, config.kafka, "pressure")(Encoders.product[Pressure]).start()
+        }
+        if (config.mean.temperature.enabled) {
+          new MeanProcessor[Temperature](spark, config.mean.temperature, config.kafka, "temperature")(Encoders.product[Temperature]).start()
+        }
+        if (config.mean.humidity.enabled) {
+          new MeanProcessor[Humidity](spark, config.mean.humidity, config.kafka, "humidity")(Encoders.product[Humidity]).start()
+        }
+        if (config.mean.vibration.enabled) {
+          new MeanProcessor[Vibration](spark, config.mean.vibration, config.kafka, "vibration")(Encoders.product[Vibration]).start()
+        }
+      }
 
-      // Initialize equipment state prediction
-      logger.info("Initializing equipment state prediction")
-//      new EquipmentStateProcessor(
-//        spark,
-//        config.kafka
-//      ).start()
+      new EquipmentStateProcessor(
+        spark,
+        config.kafka
+      ).start()
 
       spark.streams.awaitAnyTermination()
     } catch {
