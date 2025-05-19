@@ -1,188 +1,192 @@
 package com.factory.processor
 
-import com.factory.config.EventStreamConfig
-import com.factory.model._
-import com.factory.util.AvroUtils
-import org.apache.spark.sql.SparkSession
+import com.factory.config.{EventStreamConfig, KafkaConfig}
+import io.confluent.kafka.schemaregistry.client.rest.RestService
+import org.apache.spark.sql.avro.functions._
 import org.apache.spark.sql.functions._
-import org.apache.spark.sql.streaming.Trigger
+import org.apache.spark.sql.streaming.{GroupState, GroupStateTimeout, OutputMode, Trigger}
+import org.apache.spark.sql.{Dataset, SparkSession}
 import org.slf4j.LoggerFactory
-import java.time.Instant
-import java.util.concurrent.ConcurrentHashMap
-import scala.collection.mutable
+
+import java.nio.ByteBuffer
+import java.util.concurrent.TimeUnit
+
+case class SensorReading(
+  label: String,
+  timestampMs: Long,
+  value: Double
+)
+
+case class ThresholdCooldownState(
+  lastWarningSentMs: Option[Long],
+  lastCriticalSentMs: Option[Long]
+)
+
+case class Event(
+  title: String,
+  timestampDaysEpoch: Long,
+  is_alert: Boolean
+)
 
 class EventProcessor(
   spark: SparkSession,
   config: EventStreamConfig,
+  kafkaConfig: KafkaConfig,
   sensorType: String,
   resultTopic: String
-) {
-  private val logger = LoggerFactory.getLogger(getClass)
-  
-  // Store the last time an event was triggered for each sensor+severity
-  private val lastEventTimeMap = new ConcurrentHashMap[String, Long]()
-  
-  // Default cooldown period in milliseconds (5 minutes)
-  private val DEFAULT_COOLDOWN_PERIOD_MS = 5 * 60 * 1000L
-  
+) extends Serializable {
+  @transient lazy private val logger = LoggerFactory.getLogger(getClass)
+  import spark.implicits._
+
+  @transient lazy private val restService = new RestService(kafkaConfig.schemaRegistryUrl)
+
+  private def addSchemaRegistryHeaderUDF(schemaId: Int) = udf((avroBytes: Array[Byte]) => {
+    val result = new Array[Byte](1 + 4 + avroBytes.length)
+    result(0) = 0 // Magic byte
+    val schemaIdBytes = ByteBuffer.allocate(4).putInt(schemaId).array()
+    System.arraycopy(schemaIdBytes, 0, result, 1, 4)
+    System.arraycopy(avroBytes, 0, result, 5, avroBytes.length)
+    result
+  })
+
+  private def processSensorReadings(
+    label: String,
+    readings: Iterator[SensorReading],
+    state: GroupState[ThresholdCooldownState]
+  ): Iterator[Event] = {
+    if (state.hasTimedOut) {
+      state.remove()
+      Iterator.empty
+    } else {
+      var currentState = state.getOption.getOrElse(ThresholdCooldownState(None, None))
+      var eventsToEmit = List.empty[Event]
+
+      readings.toList.sortBy(_.timestampMs).foreach { reading =>
+        val currentTimeMs = reading.timestampMs
+        val value = reading.value
+
+        // Check critical threshold first
+        if (config.criticalThreshold.exists(value > _)) {
+          val timeSinceLastCritical = currentState.lastCriticalSentMs.map(currentTimeMs - _)
+          val cooldownExpired = (timeSinceLastCritical, config.cooldownPeriodMs) match {
+            case (None, _) => true // No previous event, so cooldown is expired
+            case (Some(diff), Some(cooldown)) => diff >= cooldown
+            case (Some(_), None) => true // No cooldown configured, so always expired
+            case (None, Some(_)) => true // No previous event, so cooldown is expired
+          }
+          
+          if (cooldownExpired) {
+            eventsToEmit :+= Event(
+              title = s"CRITICAL: $sensorType value $value exceeds critical threshold for sensor $label",
+              timestampDaysEpoch = TimeUnit.MILLISECONDS.toDays(currentTimeMs),
+              is_alert = true
+            )
+            currentState = currentState.copy(lastCriticalSentMs = Some(currentTimeMs))
+          }
+        }
+        // Then check warning threshold
+        else if (config.warningThreshold.exists(value > _)) {
+          val timeSinceLastWarning = currentState.lastWarningSentMs.map(currentTimeMs - _)
+          val cooldownExpired = (timeSinceLastWarning, config.cooldownPeriodMs) match {
+            case (None, _) => true // No previous event, so cooldown is expired
+            case (Some(diff), Some(cooldown)) => diff >= cooldown
+            case (Some(_), None) => true // No cooldown configured, so always expired
+            case (None, Some(_)) => true // No previous event, so cooldown is expired
+          }
+          
+          if (cooldownExpired) {
+            eventsToEmit :+= Event(
+              title = s"WARNING: $sensorType value $value exceeds warning threshold for sensor $label",
+              timestampDaysEpoch = TimeUnit.MILLISECONDS.toDays(currentTimeMs),
+              is_alert = false
+            )
+            currentState = currentState.copy(lastWarningSentMs = Some(currentTimeMs))
+          }
+        }
+        // Value is back to normal - reset cooldown state
+        else {
+          currentState = ThresholdCooldownState(None, None)
+        }
+      }
+
+      if (eventsToEmit.nonEmpty || currentState != state.getOption.orNull) {
+        state.update(currentState)
+      }
+
+      eventsToEmit.iterator
+    }
+  }
+
   def start(): Unit = {
-    import spark.implicits._
-    
-    logger.info(s"Starting event detection for $sensorType")
-    
-    // Read input topic
+    val eventOutputSubjectName = "events-value"
+    val eventAvroSchemaForFunc = restService.getLatestVersion(eventOutputSubjectName).getSchema
+    val eventSchemaId = restService.getLatestVersion(eventOutputSubjectName).getId
+
+    val subjectPostfix = sensorType.substring(0, 1).toUpperCase + sensorType.substring(1)
+    logger.warn(s"subjectPostfix $subjectPostfix")
+    val inputAvroSchemaString = restService.getLatestVersion("com.factory.message." + subjectPostfix).getSchema
+
     val inputStream = spark
       .readStream
       .format("kafka")
-      .option("kafka.bootstrap.servers", spark.conf.get("kafka.bootstrap.servers"))
+      .option("kafka.bootstrap.servers", kafkaConfig.bootstrapServers)
       .option("subscribe", config.inputTopic)
       .option("startingOffsets", "latest")
       .load()
-      
-    // Get value to check based on sensor type
-    val valueExtractorFunction = sensorType match {
-      case "pressure" => (bytes: Array[Byte]) => {
-        val sensor = AvroUtils.deserialize[Pressure](bytes, sensorType)
-        (sensor.timestamp, sensor.label, sensor.data.pressure)
-      }
-      case "temperature" => (bytes: Array[Byte]) => {
-        val sensor = AvroUtils.deserialize[Temperature](bytes, sensorType)
-        (sensor.timestamp, sensor.label, sensor.data.temperature)
-      }
-      case "humidity" => (bytes: Array[Byte]) => {
-        val sensor = AvroUtils.deserialize[Humidity](bytes, sensorType)
-        (sensor.timestamp, sensor.label, sensor.data.humidity)
-      }
-      case "vibration" => (bytes: Array[Byte]) => {
-        val sensor = AvroUtils.deserialize[Vibration](bytes, sensorType)
-        // For simplicity, just monitor noise level
-        (sensor.timestamp, sensor.label, sensor.data.vibration)
-      }
-      case _ => throw new IllegalArgumentException(s"Unsupported sensor type: $sensorType")
-    }
-    
-    // Process and detect events
-    val eventStream = inputStream
-      .select("value")
-      .as[Array[Byte]]
-      .map { bytes =>
-        val (timestamp, sensorId, value) = valueExtractorFunction(bytes)
-        
-        // Get thresholds from configuration
-        val criticalThreshold = config.criticalThreshold.getOrElse(config.threshold * 1.5)
-        val warningThreshold = config.warningThreshold.getOrElse(config.threshold)
-        
-        // Get current time for deduplication
-        val currentTimeMs = System.currentTimeMillis()
-        
-        // Create the relevant metric name based on sensor type
-        val metricName = sensorType match {
-          case "pressure" => "Pressure"
-          case "temperature" => "Temperature"
-          case "flowRate" => "Flow Rate"
-          case "noiseAndVibration" => "Noise Level"
-          case _ => sensorType
-        }
-        
-        // Check critical threshold first (higher priority)
-        if (exceedsThreshold(value, criticalThreshold)) {
-          val dedupeKey = s"$sensorId:CRITICAL"
-          
-          // Check if we're in cooldown period
-          if (shouldSuppressEvent(dedupeKey, currentTimeMs, config.cooldownPeriodMs.getOrElse(DEFAULT_COOLDOWN_PERIOD_MS))) {
-            logger.debug(s"Suppressing duplicate critical event for sensor: $sensorId")
-            None
-          } else {
-            // Record this event time
-            lastEventTimeMap.put(dedupeKey, currentTimeMs)
-            
-            Some(Event(
-              timestamp,
-              sensorType,
-              sensorId,
-              value,
-              criticalThreshold,
-              getCriticalMessage(metricName, value, sensorId),
-              isAlert = true
-            ))
-          }
-        } 
-        // Then check warning threshold
-        else if (exceedsThreshold(value, warningThreshold)) {
-          val dedupeKey = s"$sensorId:WARNING"
-          
-          // Check if we're in cooldown period
-          if (shouldSuppressEvent(dedupeKey, currentTimeMs, config.cooldownPeriodMs.getOrElse(DEFAULT_COOLDOWN_PERIOD_MS))) {
-            logger.debug(s"Suppressing duplicate warning event for sensor: $sensorId")
-            None
-          } else {
-            // Record this event time
-            lastEventTimeMap.put(dedupeKey, currentTimeMs)
-            
-            Some(Event(
-              timestamp,
-              sensorType,
-              sensorId,
-              value,
-              warningThreshold,
-              getWarningMessage(metricName, value, sensorId),
-              isAlert = false
-            ))
-          }
-        }
-        // Value is back to normal - clear the cached event times to allow immediate alerts if it exceeds again
-        else {
-          val criticalKey = s"$sensorId:CRITICAL"
-          val warningKey = s"$sensorId:WARNING"
-          lastEventTimeMap.remove(criticalKey)
-          lastEventTimeMap.remove(warningKey)
-          None
-        }
-      }
-      .filter(_.isDefined)
-      .map(_.get)
-    
-    // Write events to output topic
-    val query = eventStream
+
+    val deserializedStream: Dataset[SensorReading] = inputStream
+      .select(from_avro(expr("substring(value, 6)"), inputAvroSchemaString).as("avro_data"))
       .select(
-        expr("sensorType || '-' || sensorId").as("key"),
-        AvroUtils.serializeEventToColumn.as("value")
+        col("avro_data.label").as("label"),
+        from_unixtime(col("avro_data.timestamp")).cast("timestamp").as("timestampMs"),
+        col(s"avro_data.data.$sensorType").as("value")
       )
+      .as[SensorReading]
+
+    val eventStream = deserializedStream
+      .withWatermark("timestampMs", "1 minute")
+      .groupByKey(_.label)
+      .flatMapGroupsWithState[ThresholdCooldownState, Event](
+        OutputMode.Append(),
+        GroupStateTimeout.ProcessingTimeTimeout
+      )(processSensorReadings)
+
+    val finalEventStream = eventStream
+      .select(
+        col("title").as("key"),
+        addSchemaRegistryHeaderUDF(eventSchemaId)(
+          to_avro(
+            struct(
+              col("title"),
+              col("timestampDaysEpoch").as("timestamp"),
+              col("is_alert")
+            ),
+            eventAvroSchemaForFunc
+          )
+        ).as("value")
+      )
+
+    val checkpointBaseDir = spark.conf.get("spark.sql.streaming.checkpointLocation", "/tmp/spark_checkpoints_eventproc")
+    val checkpointLocation = s"$checkpointBaseDir/events_processor_v4/$sensorType"
+    logger.info(s"Using checkpoint location: $checkpointLocation")
+
+    finalEventStream
       .writeStream
       .format("kafka")
-      .option("kafka.bootstrap.servers", spark.conf.get("kafka.bootstrap.servers"))
+      .option("kafka.bootstrap.servers", kafkaConfig.bootstrapServers)
       .option("topic", resultTopic)
-      .option("checkpointLocation", s"${spark.conf.get("spark.sql.streaming.checkpointLocation")}/events/$sensorType")
-      .trigger(Trigger.ProcessingTime(1000))
+      .option("checkpointLocation", checkpointLocation)
+      .outputMode("append")
+      .trigger(Trigger.ProcessingTime("30 seconds"))
       .start()
-      
+
     if (config.debugEnabled) {
       eventStream
         .writeStream
         .format("console")
+        .outputMode("append")
         .option("truncate", false)
         .start()
     }
   }
-  
-  private def shouldSuppressEvent(key: String, currentTimeMs: Long, cooldownMs: Long): Boolean = {
-    Option(lastEventTimeMap.get(key)) match {
-      case Some(lastEventTime) => 
-        (currentTimeMs - lastEventTime) < cooldownMs
-      case None => 
-        false // No previous event, don't suppress
-    }
-  }
-  
-  private def exceedsThreshold(value: Double, threshold: Double): Boolean = {
-    value > threshold
-  }
-  
-  private def getWarningMessage(metricName: String, value: Double, sensorId: String): String = {
-    s"WARNING: $metricName value $value exceeds warning threshold for sensor $sensorId"
-  }
-  
-  private def getCriticalMessage(metricName: String, value: Double, sensorId: String): String = {
-    s"CRITICAL: $metricName value $value exceeds critical threshold for sensor $sensorId"
-  }
-} 
+}

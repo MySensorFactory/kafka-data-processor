@@ -1,29 +1,33 @@
 package com.factory.processor
 
-import com.factory.config.{KafkaConfig, MeanConfig}
+import com.factory.config.KafkaConfig
 import io.confluent.kafka.schemaregistry.client.rest.RestService
-import org.apache.spark.sql.{Dataset, SparkSession, Row}
+import org.apache.spark.ml.PipelineModel
+import org.apache.spark.ml.classification.RandomForestClassifier
+import org.apache.spark.sql.avro.functions.{from_avro, to_avro}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.streaming.Trigger
+import org.apache.spark.sql.{Dataset, Row, SparkSession}
 import org.slf4j.LoggerFactory
-import org.apache.spark.sql.avro.functions.{from_avro, to_avro}
-import java.sql.Timestamp
+
 import java.nio.ByteBuffer
-import org.apache.avro.{Schema => AvroSchema}
+import java.sql.Timestamp
 
 class EquipmentStateProcessor(
-  spark: SparkSession,
-  kafkaConfig: KafkaConfig
-) {
+                               spark: SparkSession,
+                               kafkaConfig: KafkaConfig
+                             ) {
   private val logger = LoggerFactory.getLogger(getClass)
+
   import spark.implicits._
 
   private lazy val restService = new RestService(kafkaConfig.schemaRegistryUrl)
+  val model: PipelineModel = PipelineModel.load("/home/damiano/cluster/kafka-data-processor/src/main/resources/equipment_state_spark_model")
 
-  private val pressureOutputAvroSchemaJson = restService.getLatestVersion("augumented-pressure-value")
-  private val temperatureOutputAvroSchemaJson = restService.getLatestVersion("augumented-temperature-value")
-  private val humidityOutputAvroSchemaJson = restService.getLatestVersion("augumented-humidity-value")
-  private val vibrationOutputAvroSchemaJson = restService.getLatestVersion("augumented-vibration-value")
+  private val pressureOutputAvroSchemaJson = restService.getLatestVersion("pressureAugumented-value")
+  private val temperatureOutputAvroSchemaJson = restService.getLatestVersion("temperatureAugumented-value")
+  private val humidityOutputAvroSchemaJson = restService.getLatestVersion("humidityAugumented-value")
+  private val vibrationOutputAvroSchemaJson = restService.getLatestVersion("vibrationAugumented-value")
 
   private def addSchemaRegistryHeaderUDF(schemaId: Int) = udf((avroBytes: Array[Byte]) => {
     val result = new Array[Byte](1 + 4 + avroBytes.length)
@@ -35,10 +39,10 @@ class EquipmentStateProcessor(
   })
 
   private def readAndPrepareSensorStream(
-    topicName: String,
-    inputSchemaSubjectBaseName: String, // e.g., "Pressure", "Temperature"
-    valueFieldName: String
-  ): Dataset[Row] = {
+                                          topicName: String,
+                                          inputSchemaSubjectBaseName: String, // e.g., "Pressure", "Temperature"
+                                          valueFieldName: String
+                                        ): Dataset[Row] = {
     val fullInputSubjectName = s"com.factory.message.$inputSchemaSubjectBaseName"
     logger.info(s"Fetching input Avro schema for subject: $fullInputSubjectName from topic: $topicName")
     val avroSchemaJson = restService.getLatestVersion(fullInputSubjectName).getSchema
@@ -50,10 +54,15 @@ class EquipmentStateProcessor(
       .option("subscribe", topicName)
       .option("startingOffsets", "latest")
       .load()
-      .select(from_avro(expr("substring(value, 6)"), avroSchemaJson).as("avro_data")) // Strip header for input
       .select(
+        col("key"),
+        from_avro(expr("substring(value, 6)"), avroSchemaJson).as("avro_data")
+      )
+      .select(
+        col("key"),
         col("avro_data.label").as("label"),
-        (col("avro_data.timestamp") / 1000).cast("timestamp").as("eventTime"), // ms to Spark Timestamp
+        col("avro_data.timestamp").cast("timestamp").as("eventTime"), // ms to Spark Timestamp
+        col("avro_data.timestamp").as("timestamp_sec"),
         col(s"avro_data.data.$valueFieldName").cast("float").as(valueFieldName)
       )
   }
@@ -61,9 +70,8 @@ class EquipmentStateProcessor(
   def start(): Unit = {
     logger.info("Starting Equipment State Processor")
 
-    val watermarkDuration = "1 minute"
+    val watermarkDuration = "3 minutes"
 
-    // Fetch input schemas dynamically
     val pressureEvents = readAndPrepareSensorStream("pressure", "Pressure", "pressure")
       .withWatermark("eventTime", watermarkDuration).alias("p")
     val temperatureEvents = readAndPrepareSensorStream("temperature", "Temperature", "temperature")
@@ -74,80 +82,67 @@ class EquipmentStateProcessor(
       .withWatermark("eventTime", watermarkDuration).alias("v")
 
     val joinedData = pressureEvents
-      .join(temperatureEvents, expr("p.label = t.label AND p.eventTime = t.eventTime"), "inner")
-      .join(humidityEvents, expr("p.label = h.label AND p.eventTime = h.eventTime"), "inner")
-      .join(vibrationEvents, expr("p.label = v.label AND p.eventTime = v.eventTime"), "inner")
+      .join(temperatureEvents, "key")
+      .join(humidityEvents, "key")
+      .join(vibrationEvents, "key")
       .select(
-        col("p.label").as("equipmentId"),
-        col("p.eventTime").as("event_timestamp"), // Spark TimestampType
-        col("p.pressure").as("pressure_value"),
-        col("t.temperature").as("temperature_value"),
-        col("h.humidity").as("humidity_value"),
-        col("v.vibration").as("vibration_value")
+        col("p.label").as("equipment_type"),
+        col("p.eventTime").as("event_timestamp"),
+        col("p.pressure").as("pressure"),
+        col("t.temperature").as("temperature"),
+        col("h.humidity").as("humidity"),
+        col("v.vibration").as("vibration")
       )
 
-    val predictionsDF = joinedData
-      .map { row =>
-        val equipmentId = row.getAs[String]("equipmentId")
-        val eventTimestamp = row.getAs[Timestamp]("event_timestamp")
-        val pressure = row.getAs[Float]("pressure_value")
-        val temperature = row.getAs[Float]("temperature_value")
-        val humidity = row.getAs[Float]("humidity_value")
-        val vibration = row.getAs[Float]("vibration_value")
+    val predictionsDF = model.transform(joinedData)
 
-        implicit val SESSIONS: SparkSession = spark
-        val state = EquipmentStatePredictor.predictState(
-          temperature = temperature.toDouble, pressure = pressure.toDouble,
-          vibration = vibration.toDouble, humidity = humidity.toDouble,
-          equipmentType = equipmentId
-        )
-        (equipmentId, eventTimestamp.getTime(), pressure, temperature, humidity, vibration, state) // timestamp as Long (ms)
-      }
-      .toDF("equipmentId", "timestamp_ms", "pressure", "temperature", "humidity", "vibration", "predictedState")
-
-    // Publish augmented data to separate Avro topics
     val sensorTypes = Seq(
-      ("pressure", pressureOutputAvroSchemaJson, "Pressure"),
-      ("temperature", temperatureOutputAvroSchemaJson, "Temperature"),
-      ("humidity", humidityOutputAvroSchemaJson, "Humidity"),
-      ("vibration", vibrationOutputAvroSchemaJson, "Vibration")
+      ("pressure", pressureOutputAvroSchemaJson, "pressure"),
+      ("temperature", temperatureOutputAvroSchemaJson, "temperature"),
+      ("humidity", humidityOutputAvroSchemaJson, "humidity"),
+      ("vibration", vibrationOutputAvroSchemaJson, "vibration")
     )
 
     sensorTypes.foreach { case (sensorName, outputSchemaJson, baseOutputName) =>
-      
-      val outputSubjectName = s"com.factory.message.augmented.${baseOutputName}WithState-value"
-      val outputTopicName = s"${sensorName}_with_state"
-      
+
+      val outputSubjectName = s"${baseOutputName}Augumented-value"
+      val outputTopicName = s"${baseOutputName}Augumented"
+
       logger.info(s"Setting up output for $outputTopicName with subject $outputSubjectName")
 
-      // Fetch schema ID for output Avro schema from SR
       val schemaId = restService.getLatestVersion(outputSubjectName).getId
 
       val dfForAvro = predictionsDF.select(
         struct(
-          col("equipmentId").as("label"),
-          col("timestamp_ms").as("timestamp"), // Ensure this is long for Avro
-          // Struct for sensor data, e.g., data: {pressure: <value>}
-          struct(col(sensorName).as(sensorName)).as("data"), 
-          col("predictedState")
-        ).as("payload") // This 'payload' struct must match the Avro schema
+          col("equipment_type").as("label"),
+          unix_timestamp(col("event_timestamp")).as("timestamp"),
+          struct(col(sensorName).as(sensorName)).as("data"),
+          col("predicted_status").as("predictedState")
+        ).as("payload")
       )
 
       val finalOutputDf = dfForAvro
         .select(
-          col("payload.label").as("key"), // Kafka message key
-          addSchemaRegistryHeaderUDF(schemaId)(to_avro(col("payload"), outputSchemaJson.getSchema)).as("value") // Kafka message value
+          col("payload.label").as("key"),
+          addSchemaRegistryHeaderUDF(schemaId)(to_avro(col("payload"), outputSchemaJson.getSchema)).as("value")
         )
-      
+
       finalOutputDf.writeStream
         .format("kafka")
         .option("kafka.bootstrap.servers", kafkaConfig.bootstrapServers)
         .option("topic", outputTopicName)
-        .trigger(Trigger.ProcessingTime("1 minute"))
         .start()
-      
+
+      finalOutputDf
+        .writeStream
+        .format("console")
+        .outputMode("append")
+        .option("truncate", false)
+        .start()
+
       logger.info(s"Started Kafka output stream for $outputTopicName")
     }
     logger.info(s"All Equipment State Prediction output streams to Kafka started.")
   }
-} 
+}
+

@@ -117,16 +117,23 @@
             <artifactId>logback-classic</artifactId>
             <version>1.4.7</version>
         </dependency>
-
-<!--        <dependency>-->
-<!--            <groupId>com.factory</groupId>-->
-<!--            <artifactId>entity-store</artifactId>-->
-<!--            <version>1.0.1</version>-->
-<!--        </dependency>-->
+        <dependency>
+            <groupId>org.apache.spark</groupId>
+            <artifactId>spark-mllib_2.13</artifactId>
+            <version>${spark.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.scalatest</groupId>
+            <artifactId>scalatest_2.13</artifactId>
+            <version>3.3.0-SNAP3</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
         <sourceDirectory>src/main/scala</sourceDirectory>
+        <testSourceDirectory>src/test/scala</testSourceDirectory>
         <plugins>
             <!-- Scala Compiler -->
             <plugin>
@@ -143,6 +150,7 @@
                 </executions>
                 <configuration>
                     <scalaVersion>${scala.version}</scalaVersion>
+                    <ccTestGoals>scalatest:test</ccTestGoals>
                 </configuration>
             </plugin>
 

@@ -91,15 +91,13 @@ class MeanProcessor[T <: SensorReading : Encoder](
         )
         .withColumn("value", addSchemaRegistryHeaderUDF(outputSchema.getId)(col("pre_value")))
 
-      val outputTopic = s"${sensorType}Mean"
-      val query =
-        aggregatedDS
-          .writeStream
-          .format("kafka")
-          .option("kafka.bootstrap.servers", kafkaConfig.bootstrapServers)
-          .option("topic", outputTopic)
-          .outputMode("append")
-          .start()
+      aggregatedDS
+        .writeStream
+        .format("kafka")
+        .option("kafka.bootstrap.servers", kafkaConfig.bootstrapServers)
+        .option("topic", s"${sensorType}Mean")
+        .outputMode("append")
+        .start()
 
       if (config.debugEnabled) {
         aggregatedDS
