@@ -1,7 +1,7 @@
 package com.factory.processor
 
 import com.factory.config.{KafkaConfig, SensorConfig}
-import com.factory.model._
+import com.factory.model.SensorReading
 import io.confluent.kafka.schemaregistry.client.rest.RestService
 import org.apache.spark.sql.avro.functions._
 import org.apache.spark.sql.functions._

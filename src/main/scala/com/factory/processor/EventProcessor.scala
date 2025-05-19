@@ -11,7 +11,7 @@ import org.slf4j.LoggerFactory
 import java.nio.ByteBuffer
 import java.util.concurrent.TimeUnit
 
-case class SensorReading(
+case class EventSensorReading(
   label: String,
   timestampMs: Long,
   value: Double
@@ -51,7 +51,7 @@ class EventProcessor(
 
   private def processSensorReadings(
     label: String,
-    readings: Iterator[SensorReading],
+    readings: Iterator[EventSensorReading],
     state: GroupState[ThresholdCooldownState]
   ): Iterator[Event] = {
     if (state.hasTimedOut) {
@@ -135,14 +135,14 @@ class EventProcessor(
       .option("failOnDataLoss", "false")
       .load()
 
-    val deserializedStream: Dataset[SensorReading] = inputStream
+    val deserializedStream: Dataset[EventSensorReading] = inputStream
       .select(from_avro(expr("substring(value, 6)"), inputAvroSchemaString).as("avro_data"))
       .select(
         col("avro_data.label").as("label"),
         from_unixtime(col("avro_data.timestamp")).cast("timestamp").as("timestampMs"),
         col(s"avro_data.data.$sensorType").as("value")
       )
-      .as[SensorReading]
+      .as[EventSensorReading]
 
     val eventStream = deserializedStream
       .withWatermark("timestampMs", "1 minute")
@@ -167,16 +167,11 @@ class EventProcessor(
         ).as("value")
       )
 
-    val checkpointBaseDir = spark.conf.get("spark.sql.streaming.checkpointLocation", "/tmp/spark_checkpoints_eventproc")
-    val checkpointLocation = s"$checkpointBaseDir/events_processor_v4/$sensorType"
-    logger.info(s"Using checkpoint location: $checkpointLocation")
-
     finalEventStream
       .writeStream
       .format("kafka")
       .option("kafka.bootstrap.servers", kafkaConfig.bootstrapServers)
       .option("topic", resultTopic)
-      .option("checkpointLocation", checkpointLocation)
       .outputMode("append")
       .start()
 

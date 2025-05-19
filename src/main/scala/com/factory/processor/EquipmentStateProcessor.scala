@@ -22,7 +22,7 @@ class EquipmentStateProcessor(
   import spark.implicits._
 
   private lazy val restService = new RestService(kafkaConfig.schemaRegistryUrl)
-  val model: PipelineModel = PipelineModel.load("/home/damiano/cluster/kafka-data-processor/src/main/resources/equipment_state_spark_model")
+  val model: PipelineModel = PipelineModel.load("/opt/spark/app-jars/equipment_state_spark_model")
 
   private val pressureOutputAvroSchemaJson = restService.getLatestVersion("pressureAugumented-value")
   private val temperatureOutputAvroSchemaJson = restService.getLatestVersion("temperatureAugumented-value")
